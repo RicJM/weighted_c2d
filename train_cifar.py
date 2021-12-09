@@ -194,12 +194,16 @@ def run_test(epoch, net1, net2, test_loader, device, test_log):
 
 def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, p_threshold,
                    warm_up, num_epochs, all_loss, batch_size, num_class, device, lambda_u, T, alpha, noise_mode,
-                   dataset, r, conf_penalty, stats_log, loss_log, test_log):
-    for epoch in range(num_epochs + 1):
+                   dataset, r, conf_penalty, stats_log, loss_log, test_log, weights_log, training_losses_log, log_name,
+                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name):
+    weight_hist_1 = np.zeros((window_size, num_class))
+    weight_hist_2 = np.zeros((window_size, num_class))
+
+    for epoch in range(1, num_epochs + 1):
         test_loader = loader.run('test')
         eval_loader = loader.run('eval_train')
 
-        if epoch < warm_up:
+        if epoch <= warm_up:
             warmup_trainloader = loader.run('warmup')
             print('Warmup Net1')
             warmup(epoch, net1, optimizer1, warmup_trainloader, CEloss, conf_penalty, device, dataset, r, num_epochs,
@@ -208,10 +212,10 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             warmup(epoch, net2, optimizer2, warmup_trainloader, CEloss, conf_penalty, device, dataset, r, num_epochs,
                    noise_mode)
 
-            prob1, all_loss[0], losses_clean1 = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1, device, r,
-                                                           stats_log)
-            prob2, all_loss[1], losses_clean2 = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2, device, r,
-                                                           stats_log)
+            prob1, all_loss[0], losses_clean1, _ = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
+                                                                         device, r, stats_log, weight_mode, log_name)
+            prob2, all_loss[1], losses_clean2, _ = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
+                                                                         device, r, stats_log, weight_mode, log_name)
 
             p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
             pred2 = prob2 > p_thr2
@@ -222,8 +226,42 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             loader.run('train', pred2, prob2)  # count metrics
         else:
             print('Train Net1')
-            prob2, all_loss[1], losses_clean2 = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2, device, r,
-                                                           stats_log)
+            prob2, all_loss[1], losses_clean2, weights2_raw = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
+                                                                         device, r, stats_log, weight_mode, log_name)
+            prob1, all_loss[0], losses_clean1, weights1_raw = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
+                                                                         device, r, stats_log, weight_mode, log_name)
+
+            # Updating weight history
+            weight_hist_1[1:] = weight_hist_1[:-1]
+            weight_hist_1[0, :] = weights1_raw
+            weight_hist_2[1:] = weight_hist_2[:-1]
+            weight_hist_2[0, :] = weights2_raw
+
+            if epoch < (warm_up + window_size):
+                weights1_smooth = weight_smoothing(weight_hist_1[:epoch - warm_up], num_class, lambda_w_eps,
+                                                   window_mode=window_mode)
+                weights2_smooth = weight_smoothing(weight_hist_2[:epoch - warm_up], num_class, lambda_w_eps,
+                                                   window_mode=window_mode)
+            else:
+                weights1_smooth = weight_smoothing(weight_hist_1, num_class, lambda_w_eps,
+                                                   window_mode=window_mode)
+                weights2_smooth = weight_smoothing(weight_hist_2, num_class, lambda_w_eps,
+                                                   window_mode=window_mode)
+            # Write the weights to file
+            # creating a csv writer object 
+            csvwriter = csv.writer(weights_log)
+            #print([epoch])
+            #print(weights1_raw)
+            #print(weights2_raw)
+            #print("(1) The type of weights1_raw is : ", type(weights1_raw))
+            #print("(1) The size of weights1_raw is : ", len(weights1_raw))
+
+            #print("(2) The type of weights1_smooth is : ", type(weights1_smooth))
+            #print("(2) The size of weights1_smooth is : ", len(weights1_smooth))
+
+            csvwriter.writerow([epoch] + weights1_raw.tolist() + weights2_raw.tolist())
+            csvwriter.writerow([epoch] + weights1_smooth + weights2_smooth)
+            weights_log.flush()
 
             p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
             pred2 = prob2 > p_thr2
@@ -234,21 +272,24 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
 
             labeled_trainloader, unlabeled_trainloader = loader.run('train', pred2, prob2)  # co-divide
             train(epoch, net1, net2, criterion, optimizer1, labeled_trainloader, unlabeled_trainloader, lambda_u,
-                  batch_size, num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs)  # train net1
+                  batch_size, num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs,
+                  weights1_smooth, training_losses_log)  # train net1
 
             print('\nTrain Net2')
-            prob1, all_loss[0], losses_clean1 = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1, device, r,
-                                                           stats_log)
+            # prob1, all_loss[0], losses_clean1, weights1_raw = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
+            #                                               device, r, stats_log)
 
             p_thr1 = np.clip(p_threshold, prob1.min() + 1e-5, prob1.max() - 1e-5)
             pred1 = prob1 > p_thr1
 
             labeled_trainloader, unlabeled_trainloader = loader.run('train', pred1, prob1)  # co-divide
             train(epoch, net2, net1, criterion, optimizer2, labeled_trainloader, unlabeled_trainloader, lambda_u,
-                  batch_size, num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs)  # train net2
+                  batch_size, num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs,
+                  weights2_smooth, training_losses_log)  # train net2
 
         run_test(epoch, net1, net2, test_loader, device, test_log)
 
         sched1.step()
         sched2.step()
-    torch.save(net1.state_dict(), './final_checkpoints/final_checkpoint.pth.tar')
+    final_checkpoint_name = './final_checkpoints/%s_final_checkpoint.pth.tar' % experiment_name
+    torch.save(net1.state_dict(), final_checkpoint_name)
