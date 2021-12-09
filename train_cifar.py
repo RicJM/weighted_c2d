@@ -4,8 +4,82 @@ import pickle
 import numpy as np
 import torch
 from sklearn.mixture import GaussianMixture
+from sklearn.metrics import confusion_matrix, f1_score
+from itertools import chain
+import warnings
 
 from train import warmup, train
+
+# Implementation
+def compute_unc_weights(target, predicted, weight_mode="acc"):
+    """ Uses the labels and predictions to score the results"""
+
+    if weight_mode == "acc":
+        conf_mat = confusion_matrix(target, predicted)
+        conf_mat = conf_mat.astype('float') / conf_mat.sum(axis=1)[:, np.newaxis]
+        scores = conf_mat.diagonal()
+
+    elif weight_mode == "f1_score":
+        scores = f1_score(target, predicted, average=None)
+
+    else:
+        warnings.warn(f"Method {weight_mode} not implemented, using acc")
+        conf_mat = confusion_matrix(target, predicted)
+        conf_mat = conf_mat.astype('float') / conf_mat.sum(axis=1)[:, np.newaxis]
+        scores = conf_mat.diagonal()
+
+    compl_scores = 1 - scores  # We use the complementary scores
+    return compl_scores
+
+
+def weight_smoothing(weights, num_class, lambda_w_eps, window_mode="mean"):
+    """Avoids unstable behavior of weights
+    weight: weight matrix of size : ( epoch x class)
+    method: method to reduce the weight matrix dimension 0 (result = class_dim)
+        Types:
+            Simple moving average( un-weighted mean)
+
+    TODO:   Cummulative moving average ?
+            Weighted moving average
+            Exponential moving average
+    """
+
+    #print("Weights to be smoothed: (weight_smoothing function)")
+    #for l in np.round(weights, 4).tolist():
+    #    print("\t", end="")
+    #    print(l, end="\n")
+
+    if len(weights.shape) < 2:
+        weights = np.expand_dims(weights, 0)
+    smooth_w = np.zeros((weights.shape[1]))
+
+    if window_mode == "mean":
+        smooth_w = np.mean(weights, axis=0)
+
+    elif window_mode == "exp_smooth":
+        alpha = 0.5
+        w_dtype = weights.dtype
+        scaling_factors = np.power(1. - alpha, np.arange(weights.shape[0],
+                                                         dtype=w_dtype),
+                                   dtype=w_dtype)
+        smooth_w = np.average(weights, axis=0, weights=scaling_factors)
+
+    else:
+        warnings.warn(f"Method {window_mode} not implemented")
+        smooth_w = weights[0,]
+
+    # setting a lower bound
+    smooth_w = np.maximum(lambda_w_eps / num_class, smooth_w)
+    # Normalizing so that all the weights add up to 1
+    smooth_w = smooth_w / smooth_w.sum()
+
+    print("Smoothed weights (weight_smoothing function): ")
+    print("\t", end="")
+    for l in np.round(smooth_w, 4).tolist():
+        print(l, end=" ")
+    print("\n")
+
+    return np.round(smooth_w, 5).tolist()
 
 
 def save_losses(input_loss, exp):
