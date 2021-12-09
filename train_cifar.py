@@ -7,6 +7,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.metrics import confusion_matrix, f1_score
 from itertools import chain
 import warnings
+import csv
 
 from train import warmup, train
 
@@ -118,6 +119,27 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
 
     history = torch.stack(all_loss)
 
+    if not os.path.exists('./checkpoint/' + log_name):
+        os.makedirs('./checkpoint/' + log_name)
+
+    with open(f'./checkpoint/{log_name}/{log_name}_losses_per_class_epoch_{epoch}.txt', 'w') as csvfile: 
+        # creating a csv writer object 
+        csvwriter = csv.writer(csvfile)     
+        # writing the fields
+        #print(len(targets_all)) #50k
+        #print(len(losses)) # 50k
+        #print(len(all_loss)) # 2
+        #print(len(predictions_merged)) # 50 k
+        #print(len(predictions_all)) # 782
+
+        csvwriter.writerow( ['Target', 'Loss', 'Prediction'] )
+        for i in range(len(targets_all)):
+            csvwriter.writerow( [targets_all[i], losses[i].item(), predictions_merged[i]] )
+        
+        #csvwriter.writerow(targets_all) 
+        #csvwriter.writerow(losses) 
+        #csvwriter.writerow(predictions_all)
+        
     weights_raw = compute_unc_weights(targets_all, predictions_merged, weight_mode)
     #print("\nRaw weights: (eval_train function)")
     #print("\t", end="")
@@ -138,9 +160,10 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
     gmm.fit(input_loss)
 
     clean_idx, noisy_idx = gmm.means_.argmin(), gmm.means_.argmax()
-    stats_log.write('Epoch {} (net {}): GMM results: {} with weight {}\t'
-                    '{} with weight {}\n'.format(epoch, net, gmm.means_[clean_idx], gmm.weights_[clean_idx],
-                                                 gmm.means_[noisy_idx], gmm.weights_[noisy_idx]))
+    stats_log.write('Epoch {} (net {}): GMM results: {} with weight {} and variance {} \t'
+                    '{} with weight {} and variance {}\n'.format(epoch, net, 
+                                    gmm.means_[clean_idx], gmm.weights_[clean_idx], gmm.covariances_[clean_idx],
+                                    gmm.means_[noisy_idx], gmm.weights_[noisy_idx], gmm.covariances_[noisy_idx]))
     stats_log.flush()
 
     prob = gmm.predict_proba(input_loss)
