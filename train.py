@@ -4,6 +4,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+import csv
+import statistics
+
 
 def co_guess(net, net2, inputs_x, inputs_u, inputs_x2, inputs_u2, w_x, labels_x, T, smooth_clean):
     # label co-guessing of unlabeled samples
@@ -39,12 +42,19 @@ def co_guess(net, net2, inputs_x, inputs_u, inputs_x2, inputs_u2, w_x, labels_x,
 
 # Training
 def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled_trainloader, lambda_u, batch_size,
-          num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs, smooth_clean=True):
+          num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs, weights, training_losses_log, smooth_clean=True):
     net.train()
     net2.eval()  # fix one network and train the other
 
     unlabeled_train_iter = iter(unlabeled_trainloader)
     num_iter = (len(labeled_trainloader.dataset) // batch_size) + 1
+
+    Lx_all   = []
+    Lu_all   = []
+    Lreg_all = []
+    L_all    = []
+    #print("(1) The type of Lx_all is : ", type(Lx_all))
+
     for batch_idx, (inputs_x, inputs_x2, labels_x, _, w_x) in enumerate(labeled_trainloader):
         try:
             inputs_u, inputs_u2 = unlabeled_train_iter.next()
@@ -88,6 +98,17 @@ def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled
 
             Lx, Lu, lamb = criterion(logits_x, mixed_target[:batch_size * 2], logits_u, mixed_target[batch_size * 2:],
                                      epoch + batch_idx / num_iter, warm_up, lambda_u)
+            Lx = -torch.mean(Lx)
+            weights_ = torch.tensor(weights)
+            weights_ = weights_.cuda()
+            #Lu = Lu * weights.expand_as(targets_u)
+            #Lu = torch.mean(Lu) # Mistake?
+            #print(Lu)
+            # Lu = Lu * weights_.expand_as(targets_u) # comment Another mistake?
+            Lu = Lu * weights_.expand_as(mixed_target[batch_size * 2:])
+            #print(Lu)
+            Lu = torch.mean(Lu)
+            #print(Lu)
         else:
             mixed_input = l * input_a[:batch_size * 2] + (1 - l) * input_b[:batch_size * 2]
             mixed_target = l * target_a[:batch_size * 2] + (1 - l) * target_b[:batch_size * 2]
@@ -97,12 +118,18 @@ def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled
             Lx = -torch.mean(torch.sum(F.log_softmax(logits, dim=1) * mixed_target, dim=1))
             lamb, Lu = 0, 0
         # regularization
-        prior = torch.ones(num_class) / num_class
+        # prior = torch.ones(num_class) / num_class #uncomment 
+        # prior = torch.tensor(weights).cuda()  # Weight formula 11
+        prior = torch.tensor(weights) #comment
         prior = prior.to(device)
         pred_mean = torch.softmax(logits, dim=1).mean(0)
         penalty = torch.sum(prior * torch.log(prior / pred_mean))
 
         loss = Lx + lamb * Lu + penalty
+        Lx_all.append( Lx.item() )
+        Lu_all.append( Lu.item() )
+        Lreg_all.append( penalty.item() )
+        L_all.append( loss.item() )
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
@@ -119,6 +146,15 @@ def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled
                              'Labeled loss: %.2f  penalty: %.2e'
                              % (epoch, num_epochs, batch_idx + 1, num_iter, Lx.item(), penalty.item()))
         sys.stdout.flush()
+    # Write the losses to file
+    # creating a csv writer object 
+    csvwriter = csv.writer(training_losses_log)
+    Lx_all   = np.mean(np.array(Lx_all))
+    Lu_all   = np.mean(np.array(Lu_all))
+    Lreg_all = np.mean(np.array(Lreg_all))
+    L_all    = np.mean(np.array(L_all))
+    csvwriter.writerow([epoch] + [Lx_all] + [Lu_all] + [lamb] + [Lreg_all] + [L_all])
+    training_losses_log.flush()
 
 
 def warmup(epoch, net, optimizer, dataloader, criterion, conf_penalty, device, dataset, r, num_epochs, noise_mode):
