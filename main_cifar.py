@@ -44,6 +44,12 @@ def parse_args():
     parser.add_argument('--not-rampup', dest='not_rampup', action='store_true', help='not rumpup')
     parser.add_argument('--supcon', dest='supcon', action='store_true', help='use supcon')
     parser.add_argument('--use-aa', dest='use_aa', action='store_true', help='use supcon')
+    parser.add_argument('--window_size', default=5, type=int)
+    parser.add_argument('--window_mode', choices=['mean', 'exp_smooth'], default='mean',
+                        help='method for the computation of the weights')
+    parser.add_argument('--lambda_w_eps', default=1, type=float)
+    parser.add_argument('--weight_mode', choices=['f1_score', 'acc'], default='f1_score',
+                        help='method for the computation of the weights')
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -197,9 +203,12 @@ def main():
     else:
         conf_penalty = None
     all_loss = [[], []]  # save the history of losses from two networks
+
     run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, args.p_threshold,
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
-                   args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log)
+                   args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log, 
+                   weights_log, training_losses_log, my_log_name,
+                   args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name)
 
 
 if __name__ == '__main__':
