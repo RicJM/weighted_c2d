@@ -93,14 +93,21 @@ def save_losses(input_loss, exp):
     pickle.dump(loss_history, open(nm, "wb"))
 
 
-def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log):
+def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, weight_mode, log_name):
     model.eval()
     losses = torch.zeros(50000)
     losses_clean = torch.zeros(50000)
+    targets_all = []
+    predictions_all = []
     with torch.no_grad():
         for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(eval_loader):
             inputs, targets, targets_clean = inputs.to(device), targets.to(device), targets_clean.to(device)
             outputs = model(inputs)
+            targets_all += targets.tolist()
+            _, predicted = torch.max(outputs, 1)
+            predictions_all.append(predicted.tolist())
+            predictions_merged = list(chain(*predictions_all))  # TD probably torch/numpy has a function for this
+
             loss = CE(outputs, targets)
             clean_loss = CE(outputs, targets_clean)
             for b in range(inputs.size(0)):
@@ -110,6 +117,13 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
     all_loss.append(losses)
 
     history = torch.stack(all_loss)
+
+    weights_raw = compute_unc_weights(targets_all, predictions_merged, weight_mode)
+    #print("\nRaw weights: (eval_train function)")
+    #print("\t", end="")
+    #for l in np.round(weights_raw, 4).tolist():
+    #    print(l, end=" ")
+    #print("\n")
 
     if r >= 0.9:  # average loss over last 5 epochs to improve convergence stability
         input_loss = history[-5:].mean(0)
@@ -131,7 +145,7 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
 
     prob = gmm.predict_proba(input_loss)
     prob = prob[:, clean_idx]
-    return prob, all_loss, losses_clean
+    return prob, all_loss, losses_clean, weights_raw
 
 
 def run_test(epoch, net1, net2, test_loader, device, test_log):
