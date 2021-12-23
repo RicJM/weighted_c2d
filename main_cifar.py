@@ -133,22 +133,25 @@ def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device
 def main():
     args = parse_args()
 
+    weightsString = ''
     if args.weightsLu:
         print('Using weights in Lu')
     else:
         print('No weights in Lu')
+        weightsString = weightsString + '_NOweightsLu'
     
     if args.weightsLr:
         print('Using weights in Lr')
     else:
         print('No weights in Lr')
+        weightsString = weightsString + '_NOweightsLr'
 
     os.makedirs('./checkpoint', exist_ok=True)
-    baseFolderName = './checkpoint/%s_%s_%.2f_%.1f_%s/' % (
-        args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode)
+    baseFolderName = './checkpoint/%s_%s_%.2f_%.1f_%s%s/' % (
+        args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
     os.makedirs(baseFolderName, exist_ok=True)
-    log_name = baseFolderName + '%s_%s_%.2f_%.1f_%s' % (
-        args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode)
+    log_name = baseFolderName + '%s_%s_%.2f_%.1f_%s%s' % (
+        args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
        
     stats_log = open(log_name + '_stats.txt', 'w')
     test_log  = open(log_name + '_acc.txt', 'w')
