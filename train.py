@@ -42,7 +42,8 @@ def co_guess(net, net2, inputs_x, inputs_u, inputs_x2, inputs_u2, w_x, labels_x,
 
 # Training
 def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled_trainloader, lambda_u, batch_size,
-          num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs, weights, training_losses_log, smooth_clean=True):
+          num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs, weights, training_losses_log, 
+          weightsLu, weightsLr, smooth_clean=True):
     net.train()
     net2.eval()  # fix one network and train the other
 
@@ -101,7 +102,8 @@ def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled
             Lx = -torch.mean(Lx)
             weights_ = torch.tensor(weights)
             weights_ = weights_.cuda()
-            Lu = Lu * weights_.expand_as(mixed_target[batch_size * 2:]) # Comment for no weights in Lu
+            if weightsLu:
+                Lu = Lu * weights_.expand_as(mixed_target[batch_size * 2:])
             Lu = torch.mean(Lu)
         else:
             mixed_input = l * input_a[:batch_size * 2] + (1 - l) * input_b[:batch_size * 2]
@@ -112,8 +114,10 @@ def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled
             Lx = -torch.mean(torch.sum(F.log_softmax(logits, dim=1) * mixed_target, dim=1))
             lamb, Lu = 0, 0
         # regularization
-        prior = torch.tensor(weights) / num_class
-        #prior = torch.ones(num_class) / num_class # Uncomment for no weights in Lr
+        if weightsLr:
+            prior = torch.tensor(weights) / num_class
+        else:
+            prior = torch.ones(num_class) / num_class
         prior = prior.to(device)
         pred_mean = torch.softmax(logits, dim=1).mean(0)
         penalty = torch.sum(prior * torch.log(prior / pred_mean))
