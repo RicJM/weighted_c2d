@@ -127,13 +127,15 @@ def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device
 def main():
     args = parse_args()
     os.makedirs('./checkpoint', exist_ok=True)
-    log_name = './checkpoint/%s_%s_%.2f_%.1f_%s' % (
+    baseFolderName = './checkpoint/%s_%s_%.2f_%.1f_%s/' % (
         args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode)
-    my_log_name = '%s_%s_%.2f_%.1f_%s' % (
+    os.makedirs(baseFolderName, exist_ok=True)
+    log_name = baseFolderName + '%s_%s_%.2f_%.1f_%s' % (
         args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode)
+       
     stats_log = open(log_name + '_stats.txt', 'w')
-    test_log = open(log_name + '_acc.txt', 'w')
-    loss_log = open(log_name + '_loss.txt', 'w')
+    test_log  = open(log_name + '_acc.txt', 'w')
+    loss_log  = open(log_name + '_loss.txt', 'w')
 
     # define warmup
     if args.dataset == 'cifar10':
@@ -209,7 +211,7 @@ def main():
     run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, args.p_threshold,
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
                    args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log, 
-                   weights_log, training_losses_log, my_log_name,
+                   weights_log, training_losses_log, baseFolderName,
                    args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name)
 
 
