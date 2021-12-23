@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument('--window_size', default=5, type=int)
     parser.add_argument('--window_mode', choices=['mean', 'exp_smooth'], default='mean',
                         help='method for the computation of the weights')
-    parser.add_argument('--lambda_w_eps', default=1, type=float)
+    parser.add_argument('--lambda_w_eps', default=0.1, type=float)
     parser.add_argument('--weight_mode', choices=['f1_score', 'acc'], default='f1_score',
                         help='method for the computation of the weights')
     args = parser.parse_args()
