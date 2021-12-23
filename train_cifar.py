@@ -119,10 +119,11 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
 
     history = torch.stack(all_loss)
 
-    if not os.path.exists('./checkpoint/' + log_name):
-        os.makedirs('./checkpoint/' + log_name)
+    if not os.path.exists(log_name + 'detailedLosses/' ):
+        os.makedirs(log_name + 'detailedLosses/')
 
-    with open(f'./checkpoint/{log_name}/{log_name}_losses_per_class_epoch_{epoch}.txt', 'w') as csvfile: 
+    aux = log_name.replace('./checkpoint/', '')
+    with open(f'{log_name}detailedLosses/{aux[:-1]}_losses_per_class_epoch_{epoch}.txt', 'w') as csvfile: 
         # creating a csv writer object 
         csvwriter = csv.writer(csvfile)     
         # writing the fields
