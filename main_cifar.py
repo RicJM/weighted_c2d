@@ -50,6 +50,12 @@ def parse_args():
     parser.add_argument('--lambda_w_eps', default=0.1, type=float)
     parser.add_argument('--weight_mode', choices=['f1_score', 'acc'], default='f1_score',
                         help='method for the computation of the weights')
+    parser.add_argument('--weightsLu', dest='weightsLu', action='store_true')
+    parser.add_argument('--no-weightsLu', dest='weightsLu', action='store_false')
+    parser.set_defaults(weightsLu=True)
+    parser.add_argument('--weightsLr', dest='weightsLr', action='store_true')
+    parser.add_argument('--no-weightsLr', dest='weightsLr', action='store_false')
+    parser.set_defaults(weightsLr=True)
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -126,6 +132,17 @@ def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device
 
 def main():
     args = parse_args()
+
+    if args.weightsLu:
+        print('Using weights in Lu')
+    else:
+        print('No weights in Lu')
+    
+    if args.weightsLr:
+        print('Using weights in Lr')
+    else:
+        print('No weights in Lr')
+
     os.makedirs('./checkpoint', exist_ok=True)
     baseFolderName = './checkpoint/%s_%s_%.2f_%.1f_%s/' % (
         args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode)
@@ -212,7 +229,8 @@ def main():
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
                    args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log, 
                    weights_log, training_losses_log, baseFolderName,
-                   args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name)
+                   args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name,
+                   args.weightsLu, args.weightsLr)
 
 
 if __name__ == '__main__':
