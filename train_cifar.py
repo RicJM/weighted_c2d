@@ -70,9 +70,9 @@ def weight_smoothing(weights, num_class, lambda_w_eps, window_mode="mean"):
         smooth_w = weights[0,]
 
     # setting a lower bound
-    smooth_w = np.maximum(lambda_w_eps / num_class, smooth_w)
-    # Normalizing so that all the weights add up to 1
-    smooth_w = smooth_w / smooth_w.sum()
+    smooth_w = np.maximum(lambda_w_eps, smooth_w)
+    # Normalizing so that all the weights add up to num_class
+    smooth_w = smooth_w / smooth_w.sum() * num_class
 
     print("Smoothed weights (weight_smoothing function): ")
     print("\t", end="")
