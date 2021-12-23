@@ -196,7 +196,7 @@ def run_test(epoch, net1, net2, test_loader, device, test_log):
 def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, p_threshold,
                    warm_up, num_epochs, all_loss, batch_size, num_class, device, lambda_u, T, alpha, noise_mode,
                    dataset, r, conf_penalty, stats_log, loss_log, test_log, weights_log, training_losses_log, log_name,
-                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name):
+                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr):
     weight_hist_1 = np.zeros((window_size, num_class))
     weight_hist_2 = np.zeros((window_size, num_class))
 
@@ -274,7 +274,7 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             labeled_trainloader, unlabeled_trainloader = loader.run('train', pred2, prob2)  # co-divide
             train(epoch, net1, net2, criterion, optimizer1, labeled_trainloader, unlabeled_trainloader, lambda_u,
                   batch_size, num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs,
-                  weights1_smooth, training_losses_log)  # train net1
+                  weights1_smooth, training_losses_log, weightsLu, weightsLr)  # train net1
 
             print('\nTrain Net2')
             # prob1, all_loss[0], losses_clean1, weights1_raw = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
@@ -286,7 +286,7 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             labeled_trainloader, unlabeled_trainloader = loader.run('train', pred1, prob1)  # co-divide
             train(epoch, net2, net1, criterion, optimizer2, labeled_trainloader, unlabeled_trainloader, lambda_u,
                   batch_size, num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs,
-                  weights2_smooth, training_losses_log)  # train net2
+                  weights2_smooth, training_losses_log, weightsLu, weightsLr)  # train net2
 
         run_test(epoch, net1, net2, test_loader, device, test_log)
 
