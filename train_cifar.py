@@ -10,6 +10,7 @@ import warnings
 import csv
 
 from train import warmup, train
+from codivide_utils import gmm_probabilities
 
 # Implementation
 def compute_unc_weights(target, predicted, weight_mode="acc"):
@@ -94,7 +95,7 @@ def save_losses(input_loss, exp):
     pickle.dump(loss_history, open(nm, "wb"))
 
 
-def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, weight_mode, log_name):
+def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, weight_mode, log_name, codivide_policy):
     model.eval()
     losses = torch.zeros(50000)
     losses_clean = torch.zeros(50000)
@@ -157,18 +158,8 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
     # exp = '_std_tpc_oracle'
     # save_losses(input_loss, exp)
 
-    gmm = GaussianMixture(n_components=2, max_iter=200, tol=1e-2, reg_covar=5e-4)
-    gmm.fit(input_loss)
+    prob = codivide_policy(input_loss, stats_log, epoch, net, targets)
 
-    clean_idx, noisy_idx = gmm.means_.argmin(), gmm.means_.argmax()
-    stats_log.write('Epoch {} (net {}): GMM results: {} with weight {} and variance {} \t'
-                    '{} with weight {} and variance {}\n'.format(epoch, net, 
-                                    gmm.means_[clean_idx], gmm.weights_[clean_idx], gmm.covariances_[clean_idx],
-                                    gmm.means_[noisy_idx], gmm.weights_[noisy_idx], gmm.covariances_[noisy_idx]))
-    stats_log.flush()
-
-    prob = gmm.predict_proba(input_loss)
-    prob = prob[:, clean_idx]
     return prob, all_loss, losses_clean, weights_raw
 
 
@@ -196,7 +187,7 @@ def run_test(epoch, net1, net2, test_loader, device, test_log):
 def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, p_threshold,
                    warm_up, num_epochs, all_loss, batch_size, num_class, device, lambda_u, T, alpha, noise_mode,
                    dataset, r, conf_penalty, stats_log, loss_log, test_log, weights_log, training_losses_log, log_name,
-                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr):
+                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr, codivide_policy):
     weight_hist_1 = np.zeros((window_size, num_class))
     weight_hist_2 = np.zeros((window_size, num_class))
 
@@ -214,9 +205,11 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
                    noise_mode)
 
             prob1, all_loss[0], losses_clean1, _ = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
-                                                                         device, r, stats_log, weight_mode, log_name)
+                                                                         device, r, stats_log, weight_mode, log_name, 
+                                                                         codivide_policy)
             prob2, all_loss[1], losses_clean2, _ = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
-                                                                         device, r, stats_log, weight_mode, log_name)
+                                                                         device, r, stats_log, weight_mode, log_name, 
+                                                                         codivide_policy)
 
             p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
             pred2 = prob2 > p_thr2
@@ -228,9 +221,11 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
         else:
             print('Train Net1')
             prob2, all_loss[1], losses_clean2, weights2_raw = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
-                                                                         device, r, stats_log, weight_mode, log_name)
+                                                                         device, r, stats_log, weight_mode, log_name, 
+                                                                         codivide_policy)
             prob1, all_loss[0], losses_clean1, weights1_raw = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
-                                                                         device, r, stats_log, weight_mode, log_name)
+                                                                         device, r, stats_log, weight_mode, log_name, 
+                                                                         codivide_policy)
 
             # Updating weight history
             weight_hist_1[1:] = weight_hist_1[:-1]
