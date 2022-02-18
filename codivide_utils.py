@@ -32,6 +32,10 @@ def ccgmm_probabilities(loss, stats_log, epoch, net, targets):
 
     for c in range(num_classes):
         mask = (targets == c).cpu().numpy()
+        print(f'TARGETS: {targets.size()}')
+        print(f'MASK: {mask}')
+        print(f'INPUT LOSS: {loss}')
+
         gmm = GaussianMixture(n_components=2, max_iter=200, tol=1e-2, reg_covar=5e-4)
         gmm.fit(loss[:,0][mask].reshape(-1,1))
 
