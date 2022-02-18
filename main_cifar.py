@@ -189,7 +189,7 @@ def main():
         raise ValueError('Wrong dataset')
 
     if args.skip_warmup:
-        warm_up=1
+        warm_up=0
         print('WARNING! Skipping warm up for debugging purposes')
     print("Warm up epochs = ", warm_up)
 
