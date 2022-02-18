@@ -60,6 +60,8 @@ def parse_args():
     parser.set_defaults(weightsLr=True)
     parser.add_argument('--class-conditional', default=False, dest='ccgmm', action='store_true')
     parser.set_defaults(ccgmm=False)
+    parser.add_argument('--skip-warmup', default=False, dest='skip_warmup', action='store_true')
+    parser.set_defaults(skip_warmup=False)
     parser.add_argument('--num_workers', default=5, type=int, help='num of dataloader workers. Colab recommends 2.')
 
     args = parser.parse_args()
@@ -158,7 +160,7 @@ def main():
     os.makedirs(baseFolderName, exist_ok=True)
     log_name = baseFolderName + '%s_%s_%.2f_%.1f_%s%s' % (
         args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
-       
+
     stats_log = open(log_name + '_stats.txt', 'w')
     test_log  = open(log_name + '_acc.txt', 'w')
     loss_log  = open(log_name + '_loss.txt', 'w')
@@ -186,13 +188,15 @@ def main():
     else:
         raise ValueError('Wrong dataset')
 
-    #warm_up = 1
+    if args.skip_warmup:
+        warm_up=1
+        print('WARNING! Skipping warm up for debugging purposes')
     print("Warm up epochs = ", warm_up)
 
     weights_log = open(log_name + '_weights.txt', 'w')
     w_fields = ['epoch'] + [f'w_net_1_{cls}' for cls in range(num_classes)] \
                 + [f'w_net_2_{cls}' for cls in range(num_classes)]
-    
+
     # creating a csv writer object 
     csvwriter = csv.writer(weights_log)       
     # writing the fields 
@@ -201,7 +205,7 @@ def main():
 
     training_losses_log = open(log_name + '_training_losses.txt', 'w')
     tl_fields = ['epoch', 'L_x', 'L_u', 'lambda_u', 'L_reg', 'L_total']
-    
+
     # creating a csv writer object 
     csvwriter = csv.writer(training_losses_log)       
     # writing the fields 
