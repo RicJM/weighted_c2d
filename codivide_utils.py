@@ -24,17 +24,16 @@ def gmm_probabilities(loss, stats_log, epoch, net, targets=None):
 def ccgmm_probabilities(loss, stats_log, epoch, net, targets):
     """
         To compute the GMM probabilities with a Class-Conditional approach. And to log the means of the resulting GMM.
+        @params:
+        - targets - np.array with the class of every element.
     """
-    num_classes = int(torch.max(targets).item()+1)  # Find total number of classes
+    num_classes = max(targets)+1  # Find total number of classes
     prob = np.zeros(loss.size()[0])
     clean_means = 0
     noisy_means = 0
 
     for c in range(num_classes):
-        mask = (targets == c).cpu().numpy()
-        print(f'TARGETS: {targets.size()}')
-        print(f'MASK: {mask}')
-        print(f'INPUT LOSS: {loss}')
+        mask = targets == c
 
         gmm = GaussianMixture(n_components=2, max_iter=200, tol=1e-2, reg_covar=5e-4)
         gmm.fit(loss[:,0][mask].reshape(-1,1))
@@ -54,4 +53,3 @@ def ccgmm_probabilities(loss, stats_log, epoch, net, targets):
     stats_log.flush()
 
     return prob
-
