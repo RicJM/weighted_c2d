@@ -60,6 +60,8 @@ def parse_args():
     parser.set_defaults(weightsLr=True)
     parser.add_argument('--class-conditional', default=False, dest='ccgmm', action='store_true')
     parser.set_defaults(ccgmm=False)
+    parser.add_argument('--num_workers', default=5, type=int, help='num of dataloader workers. Colab recommends 2.')
+
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -207,7 +209,7 @@ def main():
     training_losses_log.flush()
 
     loader = dataloader.cifar_dataloader(args.dataset, r=args.r, noise_mode=args.noise_mode, batch_size=args.batch_size,
-                                         num_workers=5, root_dir=args.data_path, log=stats_log,
+                                         num_workers=args.num_workers, root_dir=args.data_path, log=stats_log,
                                          noise_file='%s/%.2f_%s.json' % (args.data_path, args.r, args.noise_mode),
                                          stronger_aug=args.aug)
 
