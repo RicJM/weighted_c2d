@@ -158,7 +158,7 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
     # exp = '_std_tpc_oracle'
     # save_losses(input_loss, exp)
 
-    prob = codivide_policy(input_loss, stats_log, epoch, net, targets)
+    prob = codivide_policy(input_loss, stats_log, epoch, net, targets_all)
 
     return prob, all_loss, losses_clean, weights_raw
 
