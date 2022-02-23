@@ -196,7 +196,7 @@ def main():
         print('WARNING! Skipping warm up for debugging purposes')
     print("Warm up epochs = ", warm_up)
 
-    weights_log = open(log_name + '_weights.txt', 'w')
+    weights_log = open(f'{experiment_folder}/{experiment_prefix}_weights.txt', 'w')
     w_fields = ['epoch'] + [f'w_net_1_{cls}' for cls in range(num_classes)] \
                 + [f'w_net_2_{cls}' for cls in range(num_classes)]
 
@@ -206,7 +206,7 @@ def main():
     csvwriter.writerow(w_fields)
     weights_log.flush()
 
-    training_losses_log = open(log_name + '_training_losses.txt', 'w')
+    training_losses_log = open(f'{experiment_folder}/{experiment_prefix}_training_losses.txt', 'w')
     tl_fields = ['epoch', 'L_x', 'L_u', 'lambda_u', 'L_reg', 'L_total']
 
     # creating a csv writer object
