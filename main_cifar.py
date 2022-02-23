@@ -63,6 +63,8 @@ def parse_args():
     parser.set_defaults(skip_warmup=False)
     parser.add_argument('--num_workers', default=5, type=int, help='num of dataloader workers. Colab recommends 2.')
     parser.add_argument('--root', default='.', type=str, help='root of the checkpoint dir')
+    parser.add_argument('--save-models', default=False, dest='save_models', action='store_true')
+    parser.set_defaults(save_models=False)
 
     args = parser.parse_args()
 
@@ -111,7 +113,6 @@ def create_model_reg(net='resnet18', dataset='cifar100', num_classes=100, device
         model = model.to(device)
         return model
 
-
 def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
     chekpoint = torch.load('{}/pretrained/ckpt_{}_{}.pth'.format(root, dataset, net))
     sd = {}
@@ -122,7 +123,6 @@ def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, de
     model.load_state_dict(sd, strict=False)
     model = model.to(device)
     return model
-
 
 def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
     if net == 'resnet50':
@@ -161,6 +161,11 @@ def main():
     detailed_losses_folder = f'''{experiment_folder}/detailedLosses'''
     os.makedirs(detailed_losses_folder, exist_ok=True)
     detailed_losses_file = f'''{detailed_losses_folder}/{experiment_prefix}_losses_per_class_epoch_{{}}.txt'''
+    
+    model_checkpoint_folder = None
+    if args.save_models:
+        model_checkpoint_folder = f'''{experiment_folder}/models'''
+        os.makedirs(model_checkpoint_folder, exist_ok=True)
 
 
     stats_log = open(f'{experiment_folder}/{experiment_prefix}_stats.txt', 'w')
@@ -253,7 +258,7 @@ def main():
                    args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log,
                    weights_log, training_losses_log, detailed_losses_file,
                    args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name,
-                   args.weightsLu, args.weightsLr, codivide_policy, codivide_log)
+                   args.weightsLu, args.weightsLr, codivide_policy, codivide_log, model_checkpoint_folder)
 
 if __name__ == '__main__':
     main()

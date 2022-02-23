@@ -11,6 +11,7 @@ import csv
 
 from train import warmup, train
 from codivide_utils import gmm_probabilities
+from utils import save_net_optimizer_to_ckpt
 
 # Implementation
 def compute_unc_weights(target, predicted, weight_mode="acc"):
@@ -189,7 +190,7 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
                    warm_up, num_epochs, all_loss, batch_size, num_class, device, lambda_u, T, alpha, noise_mode,
                    dataset, r, conf_penalty, stats_log, loss_log, test_log, weights_log, training_losses_log, log_name,
                    window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr, codivide_policy,
-                   codivide_log):
+                   codivide_log, model_checkpoint_folder):
     weight_hist_1 = np.zeros((window_size, num_class))
     weight_hist_2 = np.zeros((window_size, num_class))
 
@@ -284,6 +285,11 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             train(epoch, net2, net1, criterion, optimizer2, labeled_trainloader, unlabeled_trainloader, lambda_u,
                   batch_size, num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs,
                   weights2_smooth, training_losses_log, weightsLu, weightsLr)  # train net2
+
+            if model_checkpoint_folder and (not epoch%5 or epoch ==9):
+                print(f'[ SAVING MODELS] EPOCH: {epoch} PATH: {model_checkpoint_folder}')
+                save_net_optimizer_to_ckpt(net1, optimizer1, f'{model_checkpoint_folder}/{epoch}_1.pt')
+                save_net_optimizer_to_ckpt(net2, optimizer2, f'{model_checkpoint_folder}/{epoch}_2.pt')
 
         run_test(epoch, net1, net2, test_loader, device, test_log)
 

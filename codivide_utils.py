@@ -93,7 +93,6 @@ def codivide_ccgmm(loss, stats_log, epoch, net,
     return prob
 
 
-
 def benchmark(prob, name, p_threshold, targets, clean_samples):
     """
         To benchmark a given probability list.
