@@ -97,6 +97,7 @@ def save_losses(input_loss, exp):
 
 def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, 
                 weight_mode, log_name, codivide_policy, codivide_log, p_threshold):
+    print(f'\nCo-Divide net{net}')
     model.eval()
     losses = torch.zeros(50000)
     losses_clean = torch.zeros(50000)
@@ -224,7 +225,6 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             loss_log.flush()
             loader.run('train', pred2, prob2)  # count metrics
         else:
-            print('Train Net1')
             prob2, all_loss[1], losses_clean2, weights2_raw = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
                                                                          device, r, stats_log, weight_mode, log_name, 
                                                                          codivide_policy, codivide_log, p_threshold)
@@ -264,6 +264,7 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             csvwriter.writerow([epoch] + weights1_smooth + weights2_smooth)
             weights_log.flush()
 
+            print('\nTrain Net1')
             p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
             pred2 = prob2 > p_thr2
 

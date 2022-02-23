@@ -79,23 +79,19 @@ def codivide_ccgmm(loss, stats_log, epoch, net,
     '''
     prob = ccgmm_probabilities(loss, stats_log, epoch, net, targets)
     prob_benchmark = gmm_probabilities(loss, stats_log, epoch, net, targets, log=False)
+
     clean_samples = targets_clean==targets
-    benchmark_policies([prob, prob_benchmark], ['CCGMM', 'GMM'], p_threshold, targets, clean_samples, codivide_log)
-
-    return prob
-
-def benchmark_policies(probs, policy_names, p_threshold, targets, clean_samples, codivide_log):
-    """
-        To compute the accuracy, F1 score, %FP, %FN and Standard distribution across the classes of the different probability vectors.
-        @params:
-            probs: list of np.arrays containing all the probs for each policy to benchmark.        
-    """
+    probs = [prob, prob_benchmark]
+    policy_names = ['CCGMM', 'GMM']
 
     results = [benchmark(prob, name, p_threshold, targets, clean_samples) for prob, name in list(zip(probs, policy_names))]
     string=''.join(results)
-    print(f'Co-Didivide Benchmark\n{string}')
+    print(f'Co-Didivide Benchmark:\n{string}')
     codivide_log.write(string)
     codivide_log.flush()
+
+    return prob
+
 
 
 def benchmark(prob, name, p_threshold, targets, clean_samples):
@@ -115,4 +111,4 @@ def benchmark(prob, name, p_threshold, targets, clean_samples):
     f1_score = recall*precision/(precision+recall)
     accuracy = comparison.sum()/len(comparison)
     std = np.std([comparison[targets==c].sum() for c in range(max(targets)+1)]) # sum number of correct predictions for each class
-    return f'Policy:{name} Accuracy:{accuracy:.3f} std:{std:.3f} f1_score:{f1_score:.3f} fp:{sum(fp)/len(comparison):.3f} fn:{sum(fn)/len(comparison):.3f}\n'
+    return f'\{name} Accuracy:{accuracy:.3f} std:{std:.3f} f1_score:{f1_score:.3f} fp:{sum(fp)/len(comparison):.3f} fn:{sum(fn)/len(comparison):.3f}\n'
