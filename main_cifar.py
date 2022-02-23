@@ -19,7 +19,6 @@ from codivide_utils import codivide_gmm, codivide_ccgmm
 
 import csv
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch CIFAR Training')
     parser.add_argument('--batch_size', default=64, type=int, help='train batchsize')
@@ -63,6 +62,7 @@ def parse_args():
     parser.add_argument('--skip-warmup', default=False, dest='skip_warmup', action='store_true')
     parser.set_defaults(skip_warmup=False)
     parser.add_argument('--num_workers', default=5, type=int, help='num of dataloader workers. Colab recommends 2.')
+    parser.add_argument('--root', default='.', type=str, help='root of the checkpoint dir')
 
     args = parser.parse_args()
 
@@ -101,7 +101,7 @@ class NegEntropy(object):
         return torch.mean(torch.sum(probs.log() * probs, dim=1))
 
 
-def create_model_reg(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0):
+def create_model_reg(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
     if net == 'resnet18':
         model = ResNet18(num_classes=num_classes, drop=drop)
         model = model.to(device)
@@ -112,8 +112,8 @@ def create_model_reg(net='resnet18', dataset='cifar100', num_classes=100, device
         return model
 
 
-def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0):
-    chekpoint = torch.load('pretrained/ckpt_{}_{}.pth'.format(dataset, net))
+def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
+    chekpoint = torch.load('{root}/pretrained/ckpt_{}_{}.pth'.format(dataset, net))
     sd = {}
     for ke in chekpoint['model']:
         nk = ke.replace('module.', '')
@@ -124,10 +124,10 @@ def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, de
     return model
 
 
-def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0):
+def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
     if net == 'resnet50':
         model = bit_models.KNOWN_MODELS['BiT-S-R50x1'](head_size=num_classes, zero_head=True)
-        model.load_from(np.load("pretrained/BiT-S-R50x1.npz"))
+        model.load_from(np.load(f"{root}/pretrained/BiT-S-R50x1.npz"))
         model = model.to(device)
     elif net == 'resnet18':
         model = models.resnet18(pretrained=True)
@@ -153,13 +153,17 @@ def main():
         print('No weights in Lr')
         weightsString = weightsString + '_NOweightsLr'
 
-
-    os.makedirs('./checkpoint', exist_ok=True)
-    baseFolderName = './checkpoint/%s_%s_%.2f_%.1f_%s%s/' % (
-        args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
+    
+    os.makedirs(f'{args.root}/checkpoint', exist_ok=True)
+    baseFolderName = '%s/checkpoint/%s_%s_%.2f_%.1f_%s%s/' % (
+        args.root, args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
     os.makedirs(baseFolderName, exist_ok=True)
     log_name = baseFolderName + '%s_%s_%.2f_%.1f_%s%s' % (
         args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
+    
+    detailedLossesFolder = f'{baseFolderName}/detailedLosses'
+    os.makedirs(detailedLossesFolder, exist_ok=True)
+    detailedLossesEpochFile = f'{detailedLossesFolder}/{log_name}_losses_per_class_epoch{{}}_.txt'
 
     stats_log = open(log_name + '_stats.txt', 'w')
     test_log  = open(log_name + '_acc.txt', 'w')
@@ -207,9 +211,9 @@ def main():
     training_losses_log = open(log_name + '_training_losses.txt', 'w')
     tl_fields = ['epoch', 'L_x', 'L_u', 'lambda_u', 'L_reg', 'L_total']
 
-    # creating a csv writer object 
-    csvwriter = csv.writer(training_losses_log)       
-    # writing the fields 
+    # creating a csv writer object
+    csvwriter = csv.writer(training_losses_log)
+    # writing the fields
     csvwriter.writerow(tl_fields)
     training_losses_log.flush()
 
@@ -227,8 +231,8 @@ def main():
         create_model = create_model_selfsup
     else:
         raise ValueError()
-    net1 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop)
-    net2 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop)
+    net1 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop, root=args.root)
+    net2 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop, root=args.root)
     cudnn.benchmark = False  # True
 
     criterion = SemiLoss()
@@ -248,11 +252,10 @@ def main():
 
     run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, args.p_threshold,
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
-                   args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log, 
-                   weights_log, training_losses_log, baseFolderName,
+                   args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log,
+                   weights_log, training_losses_log, detailedLossesEpochFile,
                    args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name,
                    args.weightsLu, args.weightsLr, codivide_policy, codivide_log)
-
 
 if __name__ == '__main__':
     main()
