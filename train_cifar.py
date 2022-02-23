@@ -212,10 +212,10 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
 
             prob1, all_loss[0], losses_clean1, _ = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
                                                                          device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy)
+                                                                         codivide_policy, codivide_log, p_threshold)
             prob2, all_loss[1], losses_clean2, _ = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
                                                                          device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy)
+                                                                         codivide_policy, codivide_log, p_threshold)
 
             p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
             pred2 = prob2 > p_thr2
