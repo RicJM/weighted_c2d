@@ -86,7 +86,7 @@ def codivide_ccgmm(loss, stats_log, epoch, net,
 
     results = [benchmark(prob, name, p_threshold, targets, clean_samples) for prob, name in list(zip(probs, policy_names))]
     string=''.join(results)
-    print(f'Co-Didivide Benchmark:\n{string}')
+    print(f'{string}')
     codivide_log.write(string)
     codivide_log.flush()
 
@@ -111,4 +111,4 @@ def benchmark(prob, name, p_threshold, targets, clean_samples):
     f1_score = recall*precision/(precision+recall)
     accuracy = comparison.sum()/len(comparison)
     std = np.std([comparison[targets==c].sum() for c in range(max(targets)+1)]) # sum number of correct predictions for each class
-    return f'\{name} Accuracy:{accuracy:.3f} std:{std:.3f} f1_score:{f1_score:.3f} fp:{sum(fp)/len(comparison):.3f} fn:{sum(fn)/len(comparison):.3f}\n'
+    return f'\t{name} Accuracy:{accuracy:.3f} std:{std:.3f} f1_score:{f1_score:.3f} fp:{sum(fp)/len(comparison):.3f} fn:{sum(fn)/len(comparison):.3f}\n'
