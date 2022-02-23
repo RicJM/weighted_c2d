@@ -15,7 +15,7 @@ from models.PreResNet import *
 from models.resnet import SupCEResNet
 from train_cifar import run_train_loop
 
-from codivide_utils import gmm_probabilities, ccgmm_probabilities
+from codivide_utils import codivide_gmm, codivide_ccgmm
 
 import csv
 
@@ -147,12 +147,12 @@ def main():
     else:
         print('No weights in Lu')
         weightsString = weightsString + '_NOweightsLu'
-    
     if args.weightsLr:
         print('Using weights in Lr')
     else:
         print('No weights in Lr')
         weightsString = weightsString + '_NOweightsLr'
+
 
     os.makedirs('./checkpoint', exist_ok=True)
     baseFolderName = './checkpoint/%s_%s_%.2f_%.1f_%s%s/' % (
@@ -164,12 +164,13 @@ def main():
     stats_log = open(log_name + '_stats.txt', 'w')
     test_log  = open(log_name + '_acc.txt', 'w')
     loss_log  = open(log_name + '_loss.txt', 'w')
+    codivide_log  = open(log_name + '_codivide.txt', 'w')
 
     # define co-divide policy
-    codivide_policy = gmm_probabilities
+    codivide_policy = codivide_gmm
     if args.ccgmm:
         print('Using Class-Conditional GMM as the Co-Divide policy')
-        codivide_policy = ccgmm_probabilities
+        codivide_policy = codivide_ccgmm
 
 
     # define warmup
@@ -197,9 +198,9 @@ def main():
     w_fields = ['epoch'] + [f'w_net_1_{cls}' for cls in range(num_classes)] \
                 + [f'w_net_2_{cls}' for cls in range(num_classes)]
 
-    # creating a csv writer object 
-    csvwriter = csv.writer(weights_log)       
-    # writing the fields 
+    # creating a csv writer object
+    csvwriter = csv.writer(weights_log)
+    # writing the fields
     csvwriter.writerow(w_fields)
     weights_log.flush()
 
@@ -250,7 +251,7 @@ def main():
                    args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log, 
                    weights_log, training_losses_log, baseFolderName,
                    args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name,
-                   args.weightsLu, args.weightsLr, codivide_policy)
+                   args.weightsLu, args.weightsLr, codivide_policy, codivide_log)
 
 
 if __name__ == '__main__':

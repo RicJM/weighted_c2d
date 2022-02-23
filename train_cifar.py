@@ -95,17 +95,20 @@ def save_losses(input_loss, exp):
     pickle.dump(loss_history, open(nm, "wb"))
 
 
-def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, weight_mode, log_name, codivide_policy):
+def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, 
+                weight_mode, log_name, codivide_policy, codivide_log, p_threshold):
     model.eval()
     losses = torch.zeros(50000)
     losses_clean = torch.zeros(50000)
     targets_all = []
+    targets_clean_all = []
     predictions_all = []
     with torch.no_grad():
         for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(eval_loader):
             inputs, targets, targets_clean = inputs.to(device), targets.to(device), targets_clean.to(device)
             outputs = model(inputs)
             targets_all += targets.tolist()
+            targets_clean_all += targets_clean.tolist()
             _, predicted = torch.max(outputs, 1)
             predictions_all.append(predicted.tolist())
             predictions_merged = list(chain(*predictions_all))  # TD probably torch/numpy has a function for this
@@ -141,7 +144,7 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
         #csvwriter.writerow(targets_all) 
         #csvwriter.writerow(losses) 
         #csvwriter.writerow(predictions_all)
-        
+
     weights_raw = compute_unc_weights(targets_all, predictions_merged, weight_mode)
     #print("\nRaw weights: (eval_train function)")
     #print("\t", end="")
@@ -158,7 +161,8 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
     # exp = '_std_tpc_oracle'
     # save_losses(input_loss, exp)
 
-    prob = codivide_policy(input_loss, stats_log, epoch, net, np.asarray(targets_all))
+    prob = codivide_policy(input_loss, stats_log, epoch, net, p_threshold, np.asarray(targets_all), 
+                            np.asarray(targets_clean_all), codivide_log)
 
     return prob, all_loss, losses_clean, weights_raw
 
@@ -187,7 +191,8 @@ def run_test(epoch, net1, net2, test_loader, device, test_log):
 def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, p_threshold,
                    warm_up, num_epochs, all_loss, batch_size, num_class, device, lambda_u, T, alpha, noise_mode,
                    dataset, r, conf_penalty, stats_log, loss_log, test_log, weights_log, training_losses_log, log_name,
-                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr, codivide_policy):
+                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr, codivide_policy,
+                   codivide_log):
     weight_hist_1 = np.zeros((window_size, num_class))
     weight_hist_2 = np.zeros((window_size, num_class))
 
@@ -222,10 +227,10 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             print('Train Net1')
             prob2, all_loss[1], losses_clean2, weights2_raw = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
                                                                          device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy)
+                                                                         codivide_policy, codivide_log, p_threshold)
             prob1, all_loss[0], losses_clean1, weights1_raw = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
                                                                          device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy)
+                                                                         codivide_policy, codivide_log, p_threshold)
 
             # Updating weight history
             weight_hist_1[1:] = weight_hist_1[:-1]
