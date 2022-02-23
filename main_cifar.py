@@ -153,22 +153,20 @@ def main():
         print('No weights in Lr')
         weightsString = weightsString + '_NOweightsLr'
 
-    
-    os.makedirs(f'{args.root}/checkpoint', exist_ok=True)
-    baseFolderName = '%s/checkpoint/%s_%s_%.2f_%.1f_%s%s/' % (
-        args.root, args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
-    os.makedirs(baseFolderName, exist_ok=True)
-    log_name = baseFolderName + '%s_%s_%.2f_%.1f_%s%s' % (
-        args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
-    
-    detailedLossesFolder = f'{baseFolderName}/detailedLosses'
-    os.makedirs(detailedLossesFolder, exist_ok=True)
-    detailedLossesEpochFile = f'{detailedLossesFolder}/{log_name}_losses_per_class_epoch{{}}_.txt'
+    checkpoint_root = f'{args.root}/checkpoint'
+    os.makedirs(checkpoint_root, exist_ok=True)
 
-    stats_log = open(log_name + '_stats.txt', 'w')
-    test_log  = open(log_name + '_acc.txt', 'w')
-    loss_log  = open(log_name + '_loss.txt', 'w')
-    codivide_log  = open(log_name + '_codivide.txt', 'w')
+    experiment_prefix = f'''{args.experiment_name}_{args.dataset}_{args.r:.2f}_{args.lambda_u:.1f}_{args.noise_mode}{weightsString}'''
+    experiment_folder = f'''{checkpoint_root}/{experiment_prefix}'''
+    detailed_losses_folder = f'''{experiment_folder}/detailedLosses'''
+    os.makedirs(detailed_losses_folder, exist_ok=True)
+    detailed_losses_file = f'''{detailed_losses_folder}/{experiment_prefix}_losses_per_class_epoch_{{}}.txt'''
+
+
+    stats_log = open(f'{experiment_folder}/{experiment_prefix}_stats.txt', 'w')
+    test_log  = open(f'{experiment_folder}/{experiment_prefix}_acc.txt', 'w')
+    loss_log  = open(f'{experiment_folder}/{experiment_prefix}_loss.txt', 'w')
+    codivide_log  = open(f'{experiment_folder}/{experiment_prefix}_codivide.txt', 'w')
 
     # define co-divide policy
     codivide_policy = codivide_gmm
@@ -253,7 +251,7 @@ def main():
     run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, args.p_threshold,
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
                    args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log,
-                   weights_log, training_losses_log, detailedLossesEpochFile,
+                   weights_log, training_losses_log, detailed_losses_file,
                    args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name,
                    args.weightsLu, args.weightsLr, codivide_policy, codivide_log)
 
