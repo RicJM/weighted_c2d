@@ -165,13 +165,14 @@ def main():
     model_checkpoint_folder = None
     if args.save_models:
         model_checkpoint_folder = f'''{experiment_folder}/models'''
+        print(f'Models will be saved every 5 epochs at {model_checkpoint_folder}')
         os.makedirs(model_checkpoint_folder, exist_ok=True)
 
 
-    stats_log = open(f'{experiment_folder}/{experiment_prefix}_stats.txt', 'w')
-    test_log  = open(f'{experiment_folder}/{experiment_prefix}_acc.txt', 'w')
-    loss_log  = open(f'{experiment_folder}/{experiment_prefix}_loss.txt', 'w')
-    codivide_log  = open(f'{experiment_folder}/{experiment_prefix}_codivide.txt', 'w')
+    stats_log = open(f'{experiment_folder}/{experiment_prefix}_stats.txt', 'a')
+    test_log  = open(f'{experiment_folder}/{experiment_prefix}_acc.txt', 'a')
+    loss_log  = open(f'{experiment_folder}/{experiment_prefix}_loss.txt', 'a')
+    codivide_log  = open(f'{experiment_folder}/{experiment_prefix}_codivide.txt', 'a')
 
     # define co-divide policy
     codivide_policy = codivide_gmm
