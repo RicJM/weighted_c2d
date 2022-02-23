@@ -10,6 +10,8 @@ import warnings
 import csv
 
 from train import warmup, train
+from codivide_utils import gmm_probabilities
+from utils import save_net_optimizer_to_ckpt
 
 # Implementation
 def compute_unc_weights(target, predicted, weight_mode="acc"):
@@ -94,17 +96,21 @@ def save_losses(input_loss, exp):
     pickle.dump(loss_history, open(nm, "wb"))
 
 
-def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, weight_mode, log_name):
+def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, 
+                weight_mode, log_name, codivide_policy, codivide_log, p_threshold):
+    print(f'\nCo-Divide net{net}')
     model.eval()
     losses = torch.zeros(50000)
     losses_clean = torch.zeros(50000)
     targets_all = []
+    targets_clean_all = []
     predictions_all = []
     with torch.no_grad():
         for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(eval_loader):
             inputs, targets, targets_clean = inputs.to(device), targets.to(device), targets_clean.to(device)
             outputs = model(inputs)
             targets_all += targets.tolist()
+            targets_clean_all += targets_clean.tolist()
             _, predicted = torch.max(outputs, 1)
             predictions_all.append(predicted.tolist())
             predictions_merged = list(chain(*predictions_all))  # TD probably torch/numpy has a function for this
@@ -118,12 +124,8 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
     all_loss.append(losses)
 
     history = torch.stack(all_loss)
-
-    if not os.path.exists(log_name + 'detailedLosses/' ):
-        os.makedirs(log_name + 'detailedLosses/')
-
-    aux = log_name.replace('./checkpoint/', '')
-    with open(f'{log_name}detailedLosses/{aux[:-1]}_losses_per_class_epoch_{epoch}.txt', 'w') as csvfile: 
+    log_name.format(epoch)
+    with open(log_name.format(epoch), 'w') as csvfile: 
         # creating a csv writer object 
         csvwriter = csv.writer(csvfile)     
         # writing the fields
@@ -140,7 +142,7 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
         #csvwriter.writerow(targets_all) 
         #csvwriter.writerow(losses) 
         #csvwriter.writerow(predictions_all)
-        
+
     weights_raw = compute_unc_weights(targets_all, predictions_merged, weight_mode)
     #print("\nRaw weights: (eval_train function)")
     #print("\t", end="")
@@ -157,18 +159,9 @@ def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_lo
     # exp = '_std_tpc_oracle'
     # save_losses(input_loss, exp)
 
-    gmm = GaussianMixture(n_components=2, max_iter=200, tol=1e-2, reg_covar=5e-4)
-    gmm.fit(input_loss)
+    prob = codivide_policy(input_loss, stats_log, epoch, net, p_threshold, np.asarray(targets_all), 
+                            np.asarray(targets_clean_all), codivide_log)
 
-    clean_idx, noisy_idx = gmm.means_.argmin(), gmm.means_.argmax()
-    stats_log.write('Epoch {} (net {}): GMM results: {} with weight {} and variance {} \t'
-                    '{} with weight {} and variance {}\n'.format(epoch, net, 
-                                    gmm.means_[clean_idx], gmm.weights_[clean_idx], gmm.covariances_[clean_idx],
-                                    gmm.means_[noisy_idx], gmm.weights_[noisy_idx], gmm.covariances_[noisy_idx]))
-    stats_log.flush()
-
-    prob = gmm.predict_proba(input_loss)
-    prob = prob[:, clean_idx]
     return prob, all_loss, losses_clean, weights_raw
 
 
@@ -196,7 +189,8 @@ def run_test(epoch, net1, net2, test_loader, device, test_log):
 def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, p_threshold,
                    warm_up, num_epochs, all_loss, batch_size, num_class, device, lambda_u, T, alpha, noise_mode,
                    dataset, r, conf_penalty, stats_log, loss_log, test_log, weights_log, training_losses_log, log_name,
-                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr):
+                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr, codivide_policy,
+                   codivide_log, model_checkpoint_folder):
     weight_hist_1 = np.zeros((window_size, num_class))
     weight_hist_2 = np.zeros((window_size, num_class))
 
@@ -214,9 +208,11 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
                    noise_mode)
 
             prob1, all_loss[0], losses_clean1, _ = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
-                                                                         device, r, stats_log, weight_mode, log_name)
+                                                                         device, r, stats_log, weight_mode, log_name, 
+                                                                         codivide_policy, codivide_log, p_threshold)
             prob2, all_loss[1], losses_clean2, _ = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
-                                                                         device, r, stats_log, weight_mode, log_name)
+                                                                         device, r, stats_log, weight_mode, log_name, 
+                                                                         codivide_policy, codivide_log, p_threshold)
 
             p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
             pred2 = prob2 > p_thr2
@@ -226,11 +222,12 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             loss_log.flush()
             loader.run('train', pred2, prob2)  # count metrics
         else:
-            print('Train Net1')
             prob2, all_loss[1], losses_clean2, weights2_raw = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
-                                                                         device, r, stats_log, weight_mode, log_name)
+                                                                         device, r, stats_log, weight_mode, log_name, 
+                                                                         codivide_policy, codivide_log, p_threshold)
             prob1, all_loss[0], losses_clean1, weights1_raw = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
-                                                                         device, r, stats_log, weight_mode, log_name)
+                                                                         device, r, stats_log, weight_mode, log_name, 
+                                                                         codivide_policy, codivide_log, p_threshold)
 
             # Updating weight history
             weight_hist_1[1:] = weight_hist_1[:-1]
@@ -264,6 +261,7 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             csvwriter.writerow([epoch] + weights1_smooth + weights2_smooth)
             weights_log.flush()
 
+            print('\nTrain Net1')
             p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
             pred2 = prob2 > p_thr2
 
@@ -287,6 +285,11 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             train(epoch, net2, net1, criterion, optimizer2, labeled_trainloader, unlabeled_trainloader, lambda_u,
                   batch_size, num_class, device, T, alpha, warm_up, dataset, r, noise_mode, num_epochs,
                   weights2_smooth, training_losses_log, weightsLu, weightsLr)  # train net2
+
+            if model_checkpoint_folder and (not epoch%5 or epoch ==9):
+                print(f'[ SAVING MODELS] EPOCH: {epoch} PATH: {model_checkpoint_folder}')
+                save_net_optimizer_to_ckpt(net1, optimizer1, f'{model_checkpoint_folder}/{epoch}_1.pt')
+                save_net_optimizer_to_ckpt(net2, optimizer2, f'{model_checkpoint_folder}/{epoch}_2.pt')
 
         run_test(epoch, net1, net2, test_loader, device, test_log)
 

@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.metrics import roc_curve
-
+import torch
+import torch.optim as optim
+import sys
 
 def get_metric_and_best_threshold_from_roc_curve(true_label, pred_proba, nr=0.2, tpc=9000, th=0.5):
     fpr, tpr, thresholds = roc_curve(true_label, pred_proba)
@@ -20,3 +22,22 @@ def get_metric_and_best_threshold_from_roc_curve(true_label, pred_proba, nr=0.2,
     th_i1, th_i2, th_i3 = np.abs((noise_rate - nr)).argmin(), np.abs(tp - tpc).argmin(), np.argmin(d)
     return thresholds[th_i1], tp[th_i1] + fp[th_i1], thresholds[th_i2], tp[th_i2] + fp[th_i2], thresholds[th_i3], tp[
         th_i3] + fp[th_i3]
+
+
+def load_net_optimizer_from_ckpt_to_device(net, args, ckpt_path, device):
+    print(f'[ LOADING NET] {ckpt_path}\n')
+    ckpt = torch.load(ckpt_path, map_location='cpu')
+    device = torch.device(device)
+    net.load_state_dict(ckpt['model_state_dict'])
+    net.to(device)
+
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)    
+    optimizer.load_state_dict(ckpt['optimizer_state_dict'])
+    
+    return net, optimizer
+
+def save_net_optimizer_to_ckpt(net, optimizer, ckpt_path):
+    torch.save({
+        'model_state_dict': net.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        }, ckpt_path)

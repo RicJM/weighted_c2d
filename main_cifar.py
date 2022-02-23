@@ -15,8 +15,9 @@ from models.PreResNet import *
 from models.resnet import SupCEResNet
 from train_cifar import run_train_loop
 
-import csv
+from codivide_utils import codivide_gmm, codivide_ccgmm
 
+import csv
 
 def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch CIFAR Training')
@@ -56,6 +57,15 @@ def parse_args():
     parser.add_argument('--weightsLr', dest='weightsLr', action='store_true')
     parser.add_argument('--no-weightsLr', dest='weightsLr', action='store_false')
     parser.set_defaults(weightsLr=True)
+    parser.add_argument('--class-conditional', default=False, dest='ccgmm', action='store_true')
+    parser.set_defaults(ccgmm=False)
+    parser.add_argument('--skip-warmup', default=False, dest='skip_warmup', action='store_true')
+    parser.set_defaults(skip_warmup=False)
+    parser.add_argument('--num_workers', default=5, type=int, help='num of dataloader workers. Colab recommends 2.')
+    parser.add_argument('--root', default='.', type=str, help='root of the checkpoint dir')
+    parser.add_argument('--save-models', default=False, dest='save_models', action='store_true')
+    parser.set_defaults(save_models=False)
+
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -93,7 +103,7 @@ class NegEntropy(object):
         return torch.mean(torch.sum(probs.log() * probs, dim=1))
 
 
-def create_model_reg(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0):
+def create_model_reg(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
     if net == 'resnet18':
         model = ResNet18(num_classes=num_classes, drop=drop)
         model = model.to(device)
@@ -103,9 +113,8 @@ def create_model_reg(net='resnet18', dataset='cifar100', num_classes=100, device
         model = model.to(device)
         return model
 
-
-def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0):
-    chekpoint = torch.load('pretrained/ckpt_{}_{}.pth'.format(dataset, net))
+def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
+    chekpoint = torch.load('{}/pretrained/ckpt_{}_{}.pth'.format(root, dataset, net))
     sd = {}
     for ke in chekpoint['model']:
         nk = ke.replace('module.', '')
@@ -115,11 +124,10 @@ def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, de
     model = model.to(device)
     return model
 
-
-def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0):
+def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
     if net == 'resnet50':
         model = bit_models.KNOWN_MODELS['BiT-S-R50x1'](head_size=num_classes, zero_head=True)
-        model.load_from(np.load("pretrained/BiT-S-R50x1.npz"))
+        model.load_from(np.load(f"{root}/pretrained/BiT-S-R50x1.npz"))
         model = model.to(device)
     elif net == 'resnet18':
         model = models.resnet18(pretrained=True)
@@ -129,33 +137,49 @@ def create_model_bit(net='resnet18', dataset='cifar100', num_classes=100, device
         raise ValueError()
     return model
 
-
 def main():
     args = parse_args()
 
     weightsString = ''
+
     if args.weightsLu:
         print('Using weights in Lu')
     else:
         print('No weights in Lu')
         weightsString = weightsString + '_NOweightsLu'
-    
     if args.weightsLr:
         print('Using weights in Lr')
     else:
         print('No weights in Lr')
         weightsString = weightsString + '_NOweightsLr'
 
-    os.makedirs('./checkpoint', exist_ok=True)
-    baseFolderName = './checkpoint/%s_%s_%.2f_%.1f_%s%s/' % (
-        args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
-    os.makedirs(baseFolderName, exist_ok=True)
-    log_name = baseFolderName + '%s_%s_%.2f_%.1f_%s%s' % (
-        args.experiment_name, args.dataset, args.r, args.lambda_u, args.noise_mode, weightsString)
-       
-    stats_log = open(log_name + '_stats.txt', 'w')
-    test_log  = open(log_name + '_acc.txt', 'w')
-    loss_log  = open(log_name + '_loss.txt', 'w')
+    checkpoint_root = f'{args.root}/checkpoint'
+    os.makedirs(checkpoint_root, exist_ok=True)
+
+    experiment_prefix = f'''{args.experiment_name}_{args.dataset}_{args.r:.2f}_{args.lambda_u:.1f}_{args.noise_mode}{weightsString}'''
+    experiment_folder = f'''{checkpoint_root}/{experiment_prefix}'''
+    detailed_losses_folder = f'''{experiment_folder}/detailedLosses'''
+    os.makedirs(detailed_losses_folder, exist_ok=True)
+    detailed_losses_file = f'''{detailed_losses_folder}/{experiment_prefix}_losses_per_class_epoch_{{}}.txt'''
+    
+    model_checkpoint_folder = None
+    if args.save_models:
+        model_checkpoint_folder = f'''{experiment_folder}/models'''
+        print(f'Models will be saved every 5 epochs at {model_checkpoint_folder}')
+        os.makedirs(model_checkpoint_folder, exist_ok=True)
+
+
+    stats_log = open(f'{experiment_folder}/{experiment_prefix}_stats.txt', 'a')
+    test_log  = open(f'{experiment_folder}/{experiment_prefix}_acc.txt', 'a')
+    loss_log  = open(f'{experiment_folder}/{experiment_prefix}_loss.txt', 'a')
+    codivide_log  = open(f'{experiment_folder}/{experiment_prefix}_codivide.txt', 'a')
+
+    # define co-divide policy
+    codivide_policy = codivide_gmm
+    if args.ccgmm:
+        print('Using Class-Conditional GMM as the Co-Divide policy')
+        codivide_policy = codivide_ccgmm
+
 
     # define warmup
     if args.dataset == 'cifar10':
@@ -173,30 +197,32 @@ def main():
     else:
         raise ValueError('Wrong dataset')
 
-    #warm_up = 1
+    if args.skip_warmup:
+        warm_up=0
+        print('WARNING! Skipping warm up for debugging purposes')
     print("Warm up epochs = ", warm_up)
 
-    weights_log = open(log_name + '_weights.txt', 'w')
+    weights_log = open(f'{experiment_folder}/{experiment_prefix}_weights.txt', 'w')
     w_fields = ['epoch'] + [f'w_net_1_{cls}' for cls in range(num_classes)] \
                 + [f'w_net_2_{cls}' for cls in range(num_classes)]
-    
-    # creating a csv writer object 
-    csvwriter = csv.writer(weights_log)       
-    # writing the fields 
+
+    # creating a csv writer object
+    csvwriter = csv.writer(weights_log)
+    # writing the fields
     csvwriter.writerow(w_fields)
     weights_log.flush()
 
-    training_losses_log = open(log_name + '_training_losses.txt', 'w')
+    training_losses_log = open(f'{experiment_folder}/{experiment_prefix}_training_losses.txt', 'w')
     tl_fields = ['epoch', 'L_x', 'L_u', 'lambda_u', 'L_reg', 'L_total']
-    
-    # creating a csv writer object 
-    csvwriter = csv.writer(training_losses_log)       
-    # writing the fields 
+
+    # creating a csv writer object
+    csvwriter = csv.writer(training_losses_log)
+    # writing the fields
     csvwriter.writerow(tl_fields)
     training_losses_log.flush()
 
     loader = dataloader.cifar_dataloader(args.dataset, r=args.r, noise_mode=args.noise_mode, batch_size=args.batch_size,
-                                         num_workers=5, root_dir=args.data_path, log=stats_log,
+                                         num_workers=args.num_workers, root_dir=args.data_path, log=stats_log,
                                          noise_file='%s/%.2f_%s.json' % (args.data_path, args.r, args.noise_mode),
                                          stronger_aug=args.aug)
 
@@ -209,8 +235,8 @@ def main():
         create_model = create_model_selfsup
     else:
         raise ValueError()
-    net1 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop)
-    net2 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop)
+    net1 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop, root=args.root)
+    net2 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop, root=args.root)
     cudnn.benchmark = False  # True
 
     criterion = SemiLoss()
@@ -230,11 +256,10 @@ def main():
 
     run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, args.p_threshold,
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
-                   args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log, 
-                   weights_log, training_losses_log, baseFolderName,
+                   args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log,
+                   weights_log, training_losses_log, detailed_losses_file,
                    args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name,
-                   args.weightsLu, args.weightsLr)
-
+                   args.weightsLu, args.weightsLr, codivide_policy, codivide_log, model_checkpoint_folder)
 
 if __name__ == '__main__':
     main()
