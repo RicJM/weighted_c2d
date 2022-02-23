@@ -114,5 +114,9 @@ def benchmark(prob, name, p_threshold, targets, clean_samples):
     recall = tp.sum()/(tp.sum()+fn.sum())
     f1_score = recall*precision/(precision+recall)
     accuracy = comparison.sum()/len(comparison)
-    std = np.std([comparison[targets==c] for c in range(max(targets)+1)])
+    print(f'''Pred arr: {pred.shape}\Clean samples arr: {clean_samples.shape}\t
+            Comparison arr: {comparison.shape}\tTargets arr: {targets.shape}''')
+    print(f'''Pred first 10: {pred[:10]}\tClean samples first 10: {clean_samples[:10]}\t
+            Comparison first 10: {comparison[:10]}\tTargsts first 10: {targets[:10]}''')
+    std = np.std([comparison[targets==c].sum() for c in range(max(targets)+1)]) # sum number of correct predictions for each class
     return f'Policy:{name} Accuracy:{accuracy} std:{std} f1_score:{f1_score} fp:{fp.sum()/len(comparison)} fn:{fn/len(comparison)}\n'
