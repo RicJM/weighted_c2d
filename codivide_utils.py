@@ -92,7 +92,7 @@ def benchmark_policies(probs, policy_names, p_threshold, targets, clean_samples,
     """
 
     results = [benchmark(prob, name, p_threshold, targets, clean_samples) for prob, name in list(zip(probs, policy_names))]
-    string=' '.join(results)
+    string=''.join(results)
     print(f'Co-Didivide Benchmark\n{string}')
     codivide_log.write(string)
     codivide_log.flush()
@@ -114,9 +114,5 @@ def benchmark(prob, name, p_threshold, targets, clean_samples):
     recall = tp.sum()/(tp.sum()+fn.sum())
     f1_score = recall*precision/(precision+recall)
     accuracy = comparison.sum()/len(comparison)
-    print(f'''Pred arr: {pred.shape}\Clean samples arr: {clean_samples.shape}\t
-            Comparison arr: {comparison.shape}\tTargets arr: {targets.shape}''')
-    print(f'''Pred first 10: {pred[:10]}\tClean samples first 10: {clean_samples[:10]}\t
-            Comparison first 10: {comparison[:10]}\tTargsts first 10: {targets[:10]}''')
     std = np.std([comparison[targets==c].sum() for c in range(max(targets)+1)]) # sum number of correct predictions for each class
-    return f'Policy:{name} Accuracy:{accuracy} std:{std} f1_score:{f1_score} fp:{fp.sum()/len(comparison)} fn:{fn/len(comparison)}\n'
+    return f'Policy:{name} Accuracy:{accuracy:.3f} std:{std:.3f} f1_score:{f1_score:.3f} fp:{sum(fp)/len(comparison):.3f} fn:{sum(fn)/len(comparison):.3f}\n'
