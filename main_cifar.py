@@ -113,7 +113,7 @@ def create_model_reg(net='resnet18', dataset='cifar100', num_classes=100, device
 
 
 def create_model_selfsup(net='resnet18', dataset='cifar100', num_classes=100, device='cuda:0', drop=0, root='.'):
-    chekpoint = torch.load('{root}/pretrained/ckpt_{}_{}.pth'.format(dataset, net))
+    chekpoint = torch.load('{}/pretrained/ckpt_{}_{}.pth'.format(root, dataset, net))
     sd = {}
     for ke in chekpoint['model']:
         nk = ke.replace('module.', '')
