@@ -190,11 +190,11 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
                    warm_up, num_epochs, all_loss, batch_size, num_class, device, lambda_u, T, alpha, noise_mode,
                    dataset, r, conf_penalty, stats_log, loss_log, test_log, weights_log, training_losses_log, log_name,
                    window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr, codivide_policy,
-                   codivide_log, model_checkpoint_folder):
+                   codivide_log, model_checkpoint_folder, resume_epoch):
     weight_hist_1 = np.zeros((window_size, num_class))
     weight_hist_2 = np.zeros((window_size, num_class))
 
-    for epoch in range(1, num_epochs + 1):
+    for epoch in range(resume_epoch, num_epochs + 1):
         test_loader = loader.run('test')
         eval_loader = loader.run('eval_train')
 

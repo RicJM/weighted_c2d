@@ -36,6 +36,9 @@ def load_net_optimizer_from_ckpt_to_device(net, args, ckpt_path, device):
     
     return net, optimizer
 
+def get_epoch_from_checkpoint(checkpoint_path):
+    return int(checkpoint_path.split('/')[-1]) + 1
+
 def save_net_optimizer_to_ckpt(net, optimizer, ckpt_path):
     torch.save({
         'model_state_dict': net.state_dict(),

@@ -16,6 +16,7 @@ from models.resnet import SupCEResNet
 from train_cifar import run_train_loop
 
 from codivide_utils import codivide_gmm, codivide_ccgmm
+from utils import load_net_optimizer_from_ckpt_to_device, get_epoch_from_checkpoint
 
 import csv
 
@@ -63,6 +64,7 @@ def parse_args():
     parser.set_defaults(skip_warmup=False)
     parser.add_argument('--num_workers', default=5, type=int, help='num of dataloader workers. Colab recommends 2.')
     parser.add_argument('--root', default='.', type=str, help='root of the checkpoint dir')
+    parser.add_argument('--resume', default=None, type=str, help='path of the model to load')
     parser.add_argument('--save-models', default=False, dest='save_models', action='store_true')
     parser.set_defaults(save_models=False)
 
@@ -161,7 +163,7 @@ def main():
     detailed_losses_folder = f'''{experiment_folder}/detailedLosses'''
     os.makedirs(detailed_losses_folder, exist_ok=True)
     detailed_losses_file = f'''{detailed_losses_folder}/{experiment_prefix}_losses_per_class_epoch_{{}}.txt'''
-    
+
     model_checkpoint_folder = None
     if args.save_models:
         model_checkpoint_folder = f'''{experiment_folder}/models'''
@@ -240,8 +242,16 @@ def main():
     cudnn.benchmark = False  # True
 
     criterion = SemiLoss()
-    optimizer1 = optim.SGD(net1.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
-    optimizer2 = optim.SGD(net2.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+
+    if args.resume is None:
+        optimizer1 = optim.SGD(net1.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+        optimizer2 = optim.SGD(net2.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+        resume_epoch = 1 # TODO: Ask Ricardo if it should be 0 or 1.
+
+    else:
+        net1, optimizer1 = load_net_optimizer_from_ckpt_to_device(net1, args, f'{args.resume}_1.pt', args.device)
+        net2, optimizer2 = load_net_optimizer_from_ckpt_to_device(net2, args, f'{args.resume}_2.pt', args.device)
+        resume_epoch = get_epoch_from_checkpoint(args.resume)
 
     sched1 = torch.optim.lr_scheduler.StepLR(optimizer1, 150, gamma=0.1)
     sched2 = torch.optim.lr_scheduler.StepLR(optimizer2, 150, gamma=0.1)
@@ -257,9 +267,9 @@ def main():
     run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, args.p_threshold,
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
                    args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log,
-                   weights_log, training_losses_log, detailed_losses_file,
-                   args.window_size, args.window_mode, args.lambda_w_eps, args.weight_mode, args.experiment_name,
-                   args.weightsLu, args.weightsLr, codivide_policy, codivide_log, model_checkpoint_folder)
+                   weights_log, training_losses_log, detailed_losses_file, args.window_size, args.window_mode, 
+                   args.lambda_w_eps, args.weight_mode, args.experiment_name, args.weightsLu, args.weightsLr, 
+                   codivide_policy, codivide_log, model_checkpoint_folder, resume_epoch)
 
 if __name__ == '__main__':
     main()
