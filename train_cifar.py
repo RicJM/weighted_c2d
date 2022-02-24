@@ -288,8 +288,8 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
 
             if model_checkpoint_folder and (not epoch%5 or epoch ==9):
                 print(f'[ SAVING MODELS] EPOCH: {epoch} PATH: {model_checkpoint_folder}')
-                save_net_optimizer_to_ckpt(net1, optimizer1, f'{model_checkpoint_folder}/{epoch}_1.pt')
-                save_net_optimizer_to_ckpt(net2, optimizer2, f'{model_checkpoint_folder}/{epoch}_2.pt')
+                save_net_optimizer_to_ckpt(net1, optimizer1, f'{model_checkpoint_folder}/last_1.pt')
+                save_net_optimizer_to_ckpt(net2, optimizer2, f'{model_checkpoint_folder}/last_2.pt')
 
         run_test(epoch, net1, net2, test_loader, device, test_log)
 
