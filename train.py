@@ -112,7 +112,7 @@ def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled
             logits = net(mixed_input)
 
             Lx = -torch.mean(torch.sum(F.log_softmax(logits, dim=1) * mixed_target, dim=1))
-            lamb, Lu = 0, 0
+            lamb, Lu = 0, torch.tensor([0])
         # regularization
         if weightsLr:
             prior = torch.tensor(weights) / num_class
