@@ -67,9 +67,17 @@ def codivide_gmm(loss, stats_log, epoch, net,
     prob = gmm_probabilities(loss, stats_log, epoch, net, targets)
     prob_benchmark = ccgmm_probabilities(loss, stats_log, epoch, net, targets, log=False)
     clean_samples = targets_clean==targets
-    benchmark_policies([prob, prob_benchmark], ['GMM', 'CCGMM'], p_threshold, targets, clean_samples, codivide_log)
+    probs = [prob, prob_benchmark]
+    policy_names = ['GMM', 'CCGMM']
+
+    results = [benchmark(prob, name, p_threshold, targets, clean_samples) for prob, name in list(zip(probs, policy_names))]
+    string=''.join(results)
+    print(f'{string}')
+    codivide_log.write(string)
+    codivide_log.flush()
 
     return prob
+    
 
 def codivide_ccgmm(loss, stats_log, epoch, net, 
                 p_threshold, targets, targets_clean, codivide_log):
