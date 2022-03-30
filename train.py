@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import csv
 import statistics
 
-
 def co_guess(net, net2, inputs_x, inputs_u, inputs_x2, inputs_u2, w_x, labels_x, T, smooth_clean):
     # label co-guessing of unlabeled samples
     outputs_u11 = net(inputs_u)
@@ -112,7 +111,7 @@ def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled
             logits = net(mixed_input)
 
             Lx = -torch.mean(torch.sum(F.log_softmax(logits, dim=1) * mixed_target, dim=1))
-            lamb, Lu = 0, torch.tensor([0])
+            lamb, Lu = torch.tensor([0]), torch.tensor([0])
         # regularization
         if weightsLr:
             prior = torch.tensor(weights) / num_class
@@ -122,7 +121,11 @@ def train(epoch, net, net2, criterion, optimizer, labeled_trainloader, unlabeled
         pred_mean = torch.softmax(logits, dim=1).mean(0)
         penalty = torch.sum(prior * torch.log(prior / pred_mean))
 
-        loss = Lx + lamb * Lu + penalty
+        if lambda_u > 0:    
+            loss = Lx + lamb * Lu + penalty
+        else:
+            loss = Lx + penalty
+
         Lx_all.append( Lx.item() )
         Lu_all.append( Lu.item() )
         Lreg_all.append( penalty.item() )
