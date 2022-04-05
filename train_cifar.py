@@ -10,7 +10,7 @@ import warnings
 import csv
 
 from train import warmup, train
-from codivide_utils import gmm_probabilities
+from codivide_utils import per_sample_plot
 from utils import save_net_optimizer_to_ckpt
 
 # Implementation
@@ -97,7 +97,7 @@ def save_losses(input_loss, exp):
 
 
 def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, 
-                weight_mode, log_name, codivide_policy, codivide_log, p_threshold):
+                weight_mode, log_name, codivide_policy, codivide_log, p_threshold, figures_folder, enableLog=False):
     print(f'\nCo-Divide net{net}')
     model.eval()
     losses = torch.zeros(50000)
@@ -162,6 +162,9 @@ def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_l
     prob = codivide_policy(input_loss, stats_log, epoch, net, p_threshold, np.asarray(targets_all), 
                             np.asarray(targets_clean_all), codivide_log)
 
+    if enableLog:
+        per_sample_plot(losses.cpu().numpy(), np.asarray(targets_all), np.asarray(targets_clean_all), figures_folder, epoch)
+
     return prob, all_loss, losses_clean, weights_raw
 
 
@@ -189,8 +192,8 @@ def run_test(epoch, net1, net2, test_loader, device, test_log):
 def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, p_threshold,
                    warm_up, num_epochs, all_loss, batch_size, num_class, device, lambda_u, T, alpha, noise_mode,
                    dataset, r, conf_penalty, stats_log, loss_log, test_log, weights_log, training_losses_log, log_name,
-                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr, codivide_policy,
-                   codivide_log, model_checkpoint_folder, resume_epoch):
+                   window_size, window_mode, lambda_w_eps, weight_mode, experiment_name, weightsLu, weightsLr, enableLog, 
+                   figures_folder, codivide_policy, codivide_log, model_checkpoint_folder, resume_epoch):
     weight_hist_1 = np.zeros((window_size, num_class))
     weight_hist_2 = np.zeros((window_size, num_class))
 
@@ -209,10 +212,10 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
 
             prob1, all_loss[0], losses_clean1, _ = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
                                                                          device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy, codivide_log, p_threshold)
+                                                                         codivide_policy, codivide_log, p_threshold, figures_folder, enableLog)
             prob2, all_loss[1], losses_clean2, _ = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
                                                                          device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy, codivide_log, p_threshold)
+                                                                         codivide_policy, codivide_log, p_threshold, figures_folder)
 
             p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
             pred2 = prob2 > p_thr2
@@ -224,10 +227,10 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
         else:
             prob2, all_loss[1], losses_clean2, weights2_raw = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
                                                                          device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy, codivide_log, p_threshold)
+                                                                         codivide_policy, codivide_log, p_threshold, figures_folder, enableLog)
             prob1, all_loss[0], losses_clean1, weights1_raw = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
                                                                          device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy, codivide_log, p_threshold)
+                                                                         codivide_policy, codivide_log, p_threshold, figures_folder)
 
             # Updating weight history
             weight_hist_1[1:] = weight_hist_1[:-1]

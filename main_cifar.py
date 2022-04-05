@@ -67,7 +67,9 @@ def parse_args():
     parser.add_argument('--resume', default=None, type=str, help='path of the model to load')
     parser.add_argument('--save-models', default=False, dest='save_models', action='store_true')
     parser.set_defaults(save_models=False)
-
+    parser.add_argument('--codivide-log', default=False, dest='enableLog', action='store_true')
+    parser.set_defaults(enableLog=False)
+    parser.add_argument('--lambda-x', default=0, dest='lambda_x', type=float)
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -95,6 +97,15 @@ class SemiLoss(object):
         # Lu = torch.mean((probs_u - targets_u) ** 2)
         Lx = torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1)
         Lu = (probs_u - targets_u) ** 2
+
+        return Lx, Lu, linear_rampup(epoch, warm_up, lambda_u)
+
+class SemiLoss_uncertainty(object):
+    def __call__(self, outputs_x, targets_x, uncertainty_weights_x, outputs_u, targets_u, uncertainty_weights_u, epoch, warm_up, lambda_u):
+        probs_u = torch.softmax(outputs_u, dim=1)
+
+        Lx = -torch.mean(uncertainty_weights_x * torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1))
+        Lu = torch.mean(uncertainty_weights_u * torch.mean((probs_u - targets_u) ** 2, dim=1))
 
         return Lx, Lu, linear_rampup(epoch, warm_up, lambda_u)
 
@@ -161,7 +172,10 @@ def main():
     experiment_prefix = f'''{args.experiment_name}_{args.dataset}_{args.r:.2f}_{args.lambda_u:.1f}_{args.noise_mode}{weightsString}'''
     experiment_folder = f'''{checkpoint_root}/{experiment_prefix}'''
     detailed_losses_folder = f'''{experiment_folder}/detailedLosses'''
+    figures_folder = f'''{experiment_folder}/codivide_figures'''
     os.makedirs(detailed_losses_folder, exist_ok=True)
+    os.makedirs(figures_folder, exist_ok=True)
+
     detailed_losses_file = f'''{detailed_losses_folder}/{experiment_prefix}_losses_per_class_epoch_{{}}.txt'''
 
     model_checkpoint_folder = None
@@ -241,7 +255,9 @@ def main():
     net2 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop, root=args.root)
     cudnn.benchmark = False  # True
 
-    criterion = SemiLoss()
+
+    uncertainty_criterion = SemiLoss_uncertainty()
+    # criterion = SemiLoss()
 
     if args.resume is None:
         optimizer1 = optim.SGD(net1.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
@@ -264,12 +280,14 @@ def main():
         conf_penalty = None
     all_loss = [[], []]  # save the history of losses from two networks
 
-    run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, args.p_threshold,
+    run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, uncertainty_criterion, CEloss, CE, loader, args.p_threshold,
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
                    args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log,
                    weights_log, training_losses_log, detailed_losses_file, args.window_size, args.window_mode, 
-                   args.lambda_w_eps, args.weight_mode, args.experiment_name, args.weightsLu, args.weightsLr, 
-                   codivide_policy, codivide_log, model_checkpoint_folder, resume_epoch)
+                   args.lambda_w_eps, args.weight_mode, args.experiment_name, args.weightsLu, args.weightsLr, args.enableLog, 
+                   figures_folder, codivide_policy, codivide_log, model_checkpoint_folder, resume_epoch)
+
+
 
 if __name__ == '__main__':
     main()
