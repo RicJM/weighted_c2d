@@ -257,7 +257,7 @@ def main():
 
 
     uncertainty_criterion = SemiLoss_uncertainty()
-    # criterion = SemiLoss()
+    criterion = SemiLoss()
 
     if args.resume is None:
         optimizer1 = optim.SGD(net1.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
@@ -280,7 +280,7 @@ def main():
         conf_penalty = None
     all_loss = [[], []]  # save the history of losses from two networks
 
-    run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, uncertainty_criterion, CEloss, CE, loader, args.p_threshold,
+    run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion, CEloss, CE, loader, args.p_threshold,
                    warm_up, args.num_epochs, all_loss, args.batch_size, num_classes, args.device, args.lambda_u, args.T,
                    args.alpha, args.noise_mode, args.dataset, args.r, conf_penalty, stats_log, loss_log, test_log,
                    weights_log, training_losses_log, detailed_losses_file, args.window_size, args.window_mode, 
