@@ -127,11 +127,12 @@ def per_sample_plot(loss, targets, targets_clean, figures_folder, epoch):
     s=0.05
     num_classes = max(targets_clean)+1
     readable_labels = CIFAR10_labels if num_classes==10 else CIFAR100_labels
+    plt.figure(figsize=(35, 10), dpi=80)
     for c in range(0, num_classes):
         class_mask = targets_clean==c
         plt.scatter(dispersion[clean_labels&class_mask]+2*c, loss[clean_labels&class_mask], c='blue', marker='.', s=s)
         plt.scatter(dispersion[(~clean_labels)&class_mask]+(0.8+2*c),loss[(~clean_labels)&class_mask], c='red', marker='.', s=s)
-    plt.xticks(range(0,num_classes*2,2), readable_labels, rotation=45)
+    plt.xticks(range(0,num_classes*2,2), readable_labels, rotation=90)
     plt.xlabel('Label')
     plt.ylabel('Loss')
     plt.title(f'Per-sample loss distribution\nRed noisy | Rlue clean\nEpoch: {epoch}')
