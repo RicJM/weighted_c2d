@@ -75,7 +75,7 @@ def parse_args():
     if torch.cuda.is_available():
         torch.cuda.set_device(args.gpuid)
         torch.cuda.manual_seed_all(args.seed)
-        args.device = 'cuda:0'
+        args.device = f'cuda:{args.gpuid}'
     else:
         args.device = 'cpu'
 
