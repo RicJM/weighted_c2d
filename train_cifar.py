@@ -158,10 +158,9 @@ def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_l
 
     # exp = '_std_tpc_oracle'
     # save_losses(input_loss, exp)
-
-    prob = codivide_policy(input_loss, stats_log, epoch, net, p_threshold, np.asarray(targets_all), 
-                            np.asarray(targets_clean_all), codivide_log)
-
+    if epoch:
+        prob = codivide_policy(input_loss, stats_log, epoch, net, p_threshold, np.asarray(targets_all), 
+                                np.asarray(targets_clean_all), codivide_log)
     if enableLog:
         per_sample_plot(losses.cpu().numpy(), np.asarray(targets_all), np.asarray(targets_clean_all), figures_folder, epoch)
 
@@ -210,20 +209,20 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
             warmup(epoch, net2, optimizer2, warmup_trainloader, CEloss, conf_penalty, device, dataset, r, num_epochs,
                    noise_mode)
 
-            prob1, all_loss[0], losses_clean1, _ = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
-                                                                         device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy, codivide_log, p_threshold, figures_folder, enableLog)
-            prob2, all_loss[1], losses_clean2, _ = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
-                                                                         device, r, stats_log, weight_mode, log_name, 
-                                                                         codivide_policy, codivide_log, p_threshold, figures_folder)
+            #prob1, all_loss[0], losses_clean1, _ = eval_train(net1, eval_loader, CE, all_loss[0], epoch, 1,
+            #                                                             device, r, stats_log, weight_mode, log_name, 
+            #                                                             codivide_policy, codivide_log, p_threshold, figures_folder, enableLog)
+            #prob2, all_loss[1], losses_clean2, _ = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
+            #                                                             device, r, stats_log, weight_mode, log_name, 
+            #                                                             codivide_policy, codivide_log, p_threshold, figures_folder)
 
-            p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
-            pred2 = prob2 > p_thr2
+            #p_thr2 = np.clip(p_threshold, prob2.min() + 1e-5, prob2.max() - 1e-5)
+            #pred2 = prob2 > p_thr2
 
-            loss_log.write('{},{},{},{},{}\n'.format(epoch, losses_clean2[pred2].mean(), losses_clean2[pred2].std(),
-                                                     losses_clean2[~pred2].mean(), losses_clean2[~pred2].std()))
-            loss_log.flush()
-            loader.run('train', pred2, prob2)  # count metrics
+            #loss_log.write('{},{},{},{},{}\n'.format(epoch, losses_clean2[pred2].mean(), losses_clean2[pred2].std(),
+            #                                         losses_clean2[~pred2].mean(), losses_clean2[~pred2].std()))
+            #loss_log.flush()
+            #loader.run('train', pred2, prob2)  # count metrics
         else:
             prob2, all_loss[1], losses_clean2, weights2_raw = eval_train(net2, eval_loader, CE, all_loss[1], epoch, 2,
                                                                          device, r, stats_log, weight_mode, log_name, 
