@@ -191,10 +191,10 @@ def main():
     codivide_log  = open(f'{experiment_folder}/{experiment_prefix}_codivide.txt', 'a')
 
     # define co-divide policy
-    codivide_policy = codivide_gmm
     if args.ccgmm:
-        print('Using Class-Conditional GMM as the Co-Divide policy')
         codivide_policy = codivide_ccgmm
+    else:
+        codivide_policy = codivide_gmm
 
 
     # define warmup
@@ -255,8 +255,6 @@ def main():
     net2 = create_model(net=args.net, dataset=args.dataset, num_classes=num_classes, device=args.device, drop=args.drop, root=args.root)
     cudnn.benchmark = False  # True
 
-
-    uncertainty_criterion = SemiLoss_uncertainty()
     criterion = SemiLoss()
 
     if args.resume is None:

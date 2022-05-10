@@ -96,7 +96,7 @@ def save_losses(input_loss, exp):
     pickle.dump(loss_history, open(nm, "wb"))
 
 
-def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, 
+def eval_train(model, eval_loader, CE, all_loss, epoch, net, device, r, stats_log, 
                 weight_mode, log_name, codivide_policy, codivide_log, p_threshold, figures_folder, enableLog=False):
     print(f'\nCo-Divide net{net}')
     model.eval()
@@ -128,27 +128,12 @@ def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_l
     with open(log_name.format(epoch), 'w') as csvfile: 
         # creating a csv writer object 
         csvwriter = csv.writer(csvfile)     
-        # writing the fields
-        #print(len(targets_all)) #50k
-        #print(len(losses)) # 50k
-        #print(len(all_loss)) # 2
-        #print(len(predictions_merged)) # 50 k
-        #print(len(predictions_all)) # 782
 
         csvwriter.writerow( ['Target', 'Loss', 'Prediction'] )
         for i in range(len(targets_all)):
             csvwriter.writerow( [targets_all[i], losses[i].item(), predictions_merged[i]] )
-        
-        #csvwriter.writerow(targets_all) 
-        #csvwriter.writerow(losses) 
-        #csvwriter.writerow(predictions_all)
 
     weights_raw = compute_unc_weights(targets_all, predictions_merged, weight_mode)
-    #print("\nRaw weights: (eval_train function)")
-    #print("\t", end="")
-    #for l in np.round(weights_raw, 4).tolist():
-    #    print(l, end=" ")
-    #print("\n")
 
     if r >= 0.9:  # average loss over last 5 epochs to improve convergence stability
         input_loss = history[-5:].mean(0)
@@ -156,14 +141,11 @@ def eval_train( model, eval_loader, CE, all_loss, epoch, net, device, r, stats_l
     else:
         input_loss = losses.reshape(-1, 1)
 
-    # exp = '_std_tpc_oracle'
-    # save_losses(input_loss, exp)
-    if epoch:
-        prob = codivide_policy(input_loss, stats_log, epoch, net, p_threshold, np.asarray(targets_all), 
-                                np.asarray(targets_clean_all), codivide_log)
+    prob, gmm, ccgmm = codivide_policy(input_loss, stats_log, epoch, net, p_threshold, 
+        np.asarray(targets_all), np.asarray(targets_clean_all), codivide_log)
     if enableLog:
-        per_sample_plot(losses.cpu().numpy(), np.asarray(targets_all), np.asarray(targets_clean_all), figures_folder, epoch)
-
+        per_sample_plot(input_loss.cpu().numpy().ravel(), np.asarray(targets_all), 
+            np.asarray(targets_clean_all), gmm, ccgmm, p_threshold, figures_folder, epoch)
     return prob, all_loss, losses_clean, weights_raw
 
 
