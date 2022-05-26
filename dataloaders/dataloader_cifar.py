@@ -340,3 +340,14 @@ class cifar_dataloader():
                 shuffle=False,
                 num_workers=self.num_workers)
             return eval_loader
+
+        elif mode == 'BN_eval_train':
+            eval_dataset = cifar_dataset(dataset=self.dataset, noise_mode=self.noise_mode, r=self.r,
+                                         root_dir=self.root_dir, transform=self.transform_test, mode='all',
+                                         noise_file=self.noise_file)
+            eval_loader = DataLoader(
+                dataset=eval_dataset,
+                batch_size=self.batch_size,
+                shuffle=True,
+                num_workers=self.num_workers)
+            return eval_loader

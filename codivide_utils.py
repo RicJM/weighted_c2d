@@ -125,11 +125,15 @@ def benchmark(prob, name, p_threshold, targets, clean_samples):
     std = np.std([comparison[targets==c].sum() for c in range(max(targets)+1)]) # sum number of correct predictions for each class
     return f'\t{name} Accuracy:{accuracy:.3f} std:{std:.3f} f1_score:{f1_score:.3f} fp:{sum(fp)/len(comparison):.3f} fn:{sum(fn)/len(comparison):.3f}\n'
 
-def per_sample_plot(loss, targets, targets_clean, gmm, ccgmm, p_thr, figures_folder, epoch):
+def per_sample_plot(
+        loss, targets, targets_clean, per_class_testing_accuracy,
+        per_class_training_accuracy, sample_entropy, gmm, ccgmm, 
+        p_thr, figures_folder, epoch):
 
     CIFAR10_labels = ['airplane','automobile','bird','cat','deer','dog','frog','horse','ship','truck']
     CIFAR100_labels = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl', 'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair', 'chimpanzee', 'clock', 'cloud', 'cockroach', 'couch', 'crab', 'crocodile', 'cup', 'dinosaur', 'dolphin', 'elephant', 'flatfish', 'forest', 'fox', 'girl', 'hamster', 'house', 'kangaroo', 'keyboard', 'lamp', 'lawn_mower', 'leopard', 'lion', 'lizard', 'lobster', 'man', 'maple_tree', 'motorcycle', 'mountain', 'mouse', 'mushroom', 'oak_tree', 'orange', 'orchid', 'otter', 'palm_tree', 'pear', 'pickup_truck', 'pine_tree', 'plain', 'plate', 'poppy', 'porcupine', 'possum', 'rabbit', 'raccoon', 'ray', 'road', 'rocket', 'rose', 'sea', 'seal', 'shark', 'shrew', 'skunk', 'skyscraper', 'snail', 'snake', 'spider', 'squirrel', 'streetcar', 'sunflower', 'sweet_pepper', 'table', 'tank', 'telephone', 'television', 'tiger', 'tractor', 'train', 'trout', 'tulip', 'turtle', 'wardrobe', 'whale', 'willow_tree', 'wolf', 'woman', 'worm']
-    dispersion = np.random.rand(len(targets_clean))*0.8
+    # dispersion = np.random.rand(len(targets_clean))*0.8
+    dispersion = sample_entropy*0.8
     clean_labels = targets == targets_clean
     s=0.2
     num_classes = max(targets_clean)+1
@@ -147,7 +151,8 @@ def per_sample_plot(loss, targets, targets_clean, gmm, ccgmm, p_thr, figures_fol
     for c in range(0, num_classes):
         class_mask = targets_clean==c
         boundary_ccgmm = boundary_finding(ccgmm[c], p_thr, step=0.01, start=0, stop=1)
-
+        xmin=(2*c)
+        xmax=2*(c+1)
         plt.scatter(
             dispersion[clean_labels&class_mask]+2*c,
             loss[clean_labels&class_mask],
@@ -157,8 +162,21 @@ def per_sample_plot(loss, targets, targets_clean, gmm, ccgmm, p_thr, figures_fol
             loss[(~clean_labels)&class_mask],
             c='red', marker='.', s=s)
 
-        xmin=(2*c)
-        xmax=2*(c+1)
+        # per class training accuracy
+        plt.hlines( 
+            y=per_class_training_accuracy[c],
+            xmin=xmin, 
+            xmax=xmax, 
+            linewidth=2, 
+            color='gray')
+        # per class testing accuracy
+        plt.hlines(
+            y=per_class_testing_accuracy[c],
+            xmin=xmin, 
+            xmax=xmax, 
+            linewidth=2, 
+            color='black')
+        # codivide ccgmm boundary
         plt.hlines(
             y=boundary_ccgmm,
             xmin=xmin, 
@@ -196,4 +214,10 @@ def boundary_finding(gmm, p_thr, step=0.01, start=0, stop=1):
 
 #     print(prob-p_thr)
     return sampling[np.argmin(np.abs(prob-p_thr))]
+
+def enable_bn(net):
+    """ Function to enable the dropout layers during test-time """
+    for m in net.modules():
+        if m.__class__.__name__.startswith('BatchNorm'):
+            m.train()
 
