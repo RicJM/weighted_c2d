@@ -133,7 +133,8 @@ def per_sample_plot(
     CIFAR10_labels = ['airplane','automobile','bird','cat','deer','dog','frog','horse','ship','truck']
     CIFAR100_labels = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl', 'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair', 'chimpanzee', 'clock', 'cloud', 'cockroach', 'couch', 'crab', 'crocodile', 'cup', 'dinosaur', 'dolphin', 'elephant', 'flatfish', 'forest', 'fox', 'girl', 'hamster', 'house', 'kangaroo', 'keyboard', 'lamp', 'lawn_mower', 'leopard', 'lion', 'lizard', 'lobster', 'man', 'maple_tree', 'motorcycle', 'mountain', 'mouse', 'mushroom', 'oak_tree', 'orange', 'orchid', 'otter', 'palm_tree', 'pear', 'pickup_truck', 'pine_tree', 'plain', 'plate', 'poppy', 'porcupine', 'possum', 'rabbit', 'raccoon', 'ray', 'road', 'rocket', 'rose', 'sea', 'seal', 'shark', 'shrew', 'skunk', 'skyscraper', 'snail', 'snake', 'spider', 'squirrel', 'streetcar', 'sunflower', 'sweet_pepper', 'table', 'tank', 'telephone', 'television', 'tiger', 'tractor', 'train', 'trout', 'tulip', 'turtle', 'wardrobe', 'whale', 'willow_tree', 'wolf', 'woman', 'worm']
     # dispersion = np.random.rand(len(targets_clean))*0.8
-    dispersion = sample_entropy*0.8
+    dispersion = sample_entropy*1.8
+    print(f'Sample entropy min {min(sample_entropy)} max:{max(sample_entropy)}')
     clean_labels = targets == targets_clean
     s=0.2
     num_classes = max(targets_clean)+1
@@ -141,7 +142,7 @@ def per_sample_plot(
     plt.figure(figsize=(35, 10), dpi=80)
 
     boundary_gmm = boundary_finding(gmm, p_thr, step=0.01, start=0, stop=1)
-    plt.hlines(y=boundary_gmm, xmin=0, xmax=2*num_classes+2, linewidth=1, color='orange')
+    plt.hlines(y=boundary_gmm, xmin=0, xmax=4*num_classes+2, linewidth=1, color='orange')
     clean_idx, noisy_idx = gmm.means_.argmin(), gmm.means_.argmax()
     
     prob = gmm.predict_proba(loss.reshape(-1,1))
@@ -151,30 +152,32 @@ def per_sample_plot(
     for c in range(0, num_classes):
         class_mask = targets_clean==c
         boundary_ccgmm = boundary_finding(ccgmm[c], p_thr, step=0.01, start=0, stop=1)
-        xmin=(2*c)
-        xmax=2*(c+1)
+        xmin=(4*c)
+        xmax=4*(c+1)
         plt.scatter(
-            dispersion[clean_labels&class_mask]+2*c,
+            dispersion[clean_labels&class_mask]+4*c,
             loss[clean_labels&class_mask],
             c='blue', marker='.', s=s)
         plt.scatter(
-            dispersion[(~clean_labels)&class_mask]+(0.8+2*c),
+            dispersion[(~clean_labels)&class_mask]+(1.8+4*c),
             loss[(~clean_labels)&class_mask],
             c='red', marker='.', s=s)
-
+        
         # per class training accuracy
         plt.hlines( 
             y=per_class_training_accuracy[c],
             xmin=xmin, 
             xmax=xmax, 
-            linewidth=2, 
+            linewidth=2,
+            linestyles='dotted',
             color='gray')
         # per class testing accuracy
         plt.hlines(
             y=per_class_testing_accuracy[c],
             xmin=xmin, 
             xmax=xmax, 
-            linewidth=2, 
+            linewidth=2,
+            linestyles='dotted',
             color='black')
         # codivide ccgmm boundary
         plt.hlines(
@@ -195,7 +198,7 @@ def per_sample_plot(
             alpha=0.2, 
             color='pink')
 
-    plt.xticks(range(0,num_classes*2,2), readable_labels, rotation=90)
+    plt.xticks(range(0,num_classes*4,4), readable_labels, rotation=90)
     plt.xlabel('Label')
     plt.ylabel('Loss')
     plt.title(f'Per-sample loss distribution\nRed noisy | Rlue clean\nEpoch: {epoch}')

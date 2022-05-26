@@ -148,7 +148,7 @@ def eval_train(
                         losses_clean[index[b]] = clean_loss[b]
 
     
-    per_class_training_accuracy = [sum(predictions_all[targets_clean_all==c]).item()*num_class/50000 for c in set(targets_clean_all.cpu().numpy().astype('int').tolist())]
+    per_class_training_accuracy = [sum(predictions_all[targets_clean_all==c]==c).item()*num_class/50000 for c in set(targets_clean_all.cpu().numpy().astype('int').tolist())]
 
     predictions_merged  = predictions_all.tolist()
     targets_all         = targets_all.cpu().numpy().astype('int')
@@ -160,6 +160,7 @@ def eval_train(
     # Per sample uncertainty.
     sample_mean_over_mcbn = torch.mean(softmaxs, dim=2) # shape (n_samples, n_classes)
     sample_entropy = -torch.sum(sample_mean_over_mcbn*torch.log(sample_mean_over_mcbn + epsilon), axis=-1).cpu().numpy() # shape (n_samples,)
+    sample_entropy = (sample_entropy - sample_entropy.min())/(sample_entropy.max() - sample_entropy.min())
 
     history = torch.stack(all_loss)
     log_name.format(epoch)
@@ -207,7 +208,7 @@ def run_test(epoch, net1, net2, test_loader, device, test_log, num_class):
             outputs = outputs1 + outputs2
             _, predicted = torch.max(outputs, 1)
             predicted == targets
-            for c in set(predicted):
+            for c in set(predicted.cpu().numpy()):
                 per_class_accuracy[c] += sum(predicted[targets==c]==c)
 
             total += targets.size(0)
@@ -229,11 +230,11 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
                    figures_folder, codivide_policy, codivide_log, model_checkpoint_folder, resume_epoch):
     weight_hist_1 = np.zeros((window_size, num_class))
     weight_hist_2 = np.zeros((window_size, num_class))
+    per_class_accuracy = np.ones(num_class)
 
     for epoch in range(resume_epoch, num_epochs + 1):
         test_loader = loader.run('test')
         eval_loader = loader.run('BN_eval_train') # shuffling needed to perform MCBN
-        per_class_accuracy = np.ones(num_class)
         if epoch <= warm_up:
             warmup_trainloader = loader.run('warmup')
             print('Warmup Net1')
@@ -338,7 +339,7 @@ def run_train_loop(net1, optimizer1, sched1, net2, optimizer2, sched2, criterion
                 save_net_optimizer_to_ckpt(net1, optimizer1, f'{model_checkpoint_folder}/last_1.pt')
                 save_net_optimizer_to_ckpt(net2, optimizer2, f'{model_checkpoint_folder}/last_2.pt')
 
-        per_class_accuracy = run_test(epoch, net1, net2, test_loader, device, test_log)
+        per_class_accuracy = run_test(epoch, net1, net2, test_loader, device, test_log, num_class)
 
         sched1.step()
         sched2.step()
