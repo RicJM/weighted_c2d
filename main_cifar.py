@@ -261,10 +261,15 @@ def main():
         print("No weights in Lr")
         weightsString = weightsString + "_NOweightsLr"
 
+    if args.ccgmm:
+        class_conditional_prefix = "_cc"
+    else:
+        class_conditional_prefix = ""
+
     checkpoint_root = f"{args.root}/checkpoint"
     os.makedirs(checkpoint_root, exist_ok=True)
 
-    experiment_prefix = f"""{args.experiment_name}_{args.dataset}_{args.r:.2f}_{args.lambda_u:.1f}_{args.noise_mode}{weightsString}"""
+    experiment_prefix = f"""{args.experiment_name}_{args.dataset}_{args.r:.2f}_{args.lambda_u:.1f}_{args.noise_mode}{weightsString}{class_conditional_prefix}"""
     experiment_folder = f"""{checkpoint_root}/{experiment_prefix}"""
     detailed_losses_folder = f"""{experiment_folder}/detailedLosses"""
     figures_folder = f"""{experiment_folder}/codivide_figures"""
