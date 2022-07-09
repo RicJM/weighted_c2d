@@ -205,3 +205,6 @@ fabric.properties
 cifar-10
 cifar-100
 checkpoint
+final_checkpoints
+pretrained
+
