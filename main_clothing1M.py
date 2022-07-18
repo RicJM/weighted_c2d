@@ -134,10 +134,10 @@ def eval_train(
     losses = (losses - losses_noisy.min()) / (losses_noisy.max() - losses_noisy.min())
     losses_noisy = losses[: num_batches * batch_size]
     losses, losses_noisy = losses.reshape(-1, 1), losses_noisy.reshape(-1, 1)
+    targets_total = targets_total.cpu().numpy().astype("int")
 
-    gmm = GaussianMixture(n_components=2, max_iter=100, reg_covar=5e-4, tol=1e-2)
-    gmm.fit(losses_noisy)
-
+    # gmm = GaussianMixture(n_components=2, max_iter=100, reg_covar=5e-4, tol=1e-2)
+    # gmm.fit(losses_noisy)
     # clean_idx, noisy_idx = gmm.means_.argmin(), gmm.means_.argmax()
     # stats_log.write(
     #     "GMM results: {} with variance {} and weight {}\t"
