@@ -106,11 +106,11 @@ def run_test(net1, net2, test_loader):
 
 
 def eval_train(
-    epoch, model, eval_loader, criterion, num_batches, batch_size, stats_log
+    epoch, model, eval_loader, criterion, num_batches, batch_size, stats_log, device
 ):
     model.eval()
     num_samples = num_batches * batch_size + 37497  # add for intersection
-    losses = torch.zeros(num_samples)
+    losses = torch.zeros(num_samples, device=device)
     targets_total = np.zeros(num_samples)
 
     paths = []
@@ -341,12 +341,26 @@ def main():
             "eval_train"
         )  # evaluate training data loss for next epoch
         prob1, paths1 = eval_train(
-            epoch, net1, eval_loader, CE, args.num_batches, args.batch_size, stats_log
+            epoch,
+            net1,
+            eval_loader,
+            CE,
+            args.num_batches,
+            args.batch_size,
+            stats_log,
+            args.device,
         )
         print("\n==== net 2 evaluate next epoch training data loss ====")
         eval_loader = loader.run("eval_train")
         prob2, paths2 = eval_train(
-            epoch, net2, eval_loader, CE, args.num_batches, args.batch_size, stats_log
+            epoch,
+            net2,
+            eval_loader,
+            CE,
+            args.num_batches,
+            args.batch_size,
+            stats_log,
+            args.device,
         )
 
     test_loader = loader.run("test")

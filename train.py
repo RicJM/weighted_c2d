@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import torch
 import torch.nn.functional as F
+import gc
 
 
 def co_guess(
@@ -241,3 +242,5 @@ def warmup(
                 )
             )
         sys.stdout.flush()
+    gc.collect()
+    torch.cuda.empty_cache()
