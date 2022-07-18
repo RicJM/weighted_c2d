@@ -268,12 +268,12 @@ def main():
                 None,
             )
 
-            if epoch > 1:
-                print("\n\nEval Net2")
-                pred2 = prob2 > args.p_threshold
-                labeled_trainloader, unlabeled_trainloader = loader.run(
-                    "train", pred2, prob2, paths=paths2
-                )  # co-divide
+            # if epoch > 1:
+            #     print("\n\nEval Net2")
+            #     pred2 = prob2 > args.p_threshold
+            #     labeled_trainloader, unlabeled_trainloader = loader.run(
+            #         "train", pred2, prob2, paths=paths2
+            #     )  # co-divide
         else:
             pred1 = prob1 > args.p_threshold  # divide dataset
             pred2 = prob2 > args.p_threshold
