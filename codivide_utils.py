@@ -57,7 +57,7 @@ def ccgmm_probabilities(loss, stats_log, epoch, net, targets, log=True, baseline
     for c in range(num_classes):
         mask = targets == c
 
-        gmm = GaussianMixture(n_components=2, max_iter=200, tol=1e-2, reg_covar=5e-4)
+        gmm = GaussianMixture(n_components=2, max_iter=100, tol=1e-2, reg_covar=5e-4)
         gmm.fit(loss[:, 0][mask].reshape(-1, 1))
 
         clean_idx, noisy_idx = gmm.means_.argmin(), gmm.means_.argmax()

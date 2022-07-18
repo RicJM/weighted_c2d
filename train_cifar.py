@@ -11,7 +11,7 @@ import warnings
 import csv
 
 
-from train import warmup, train
+from train_weigthed import warmup, train
 from codivide_utils import per_sample_plot, enable_bn
 from utils import save_net_optimizer_to_ckpt
 
