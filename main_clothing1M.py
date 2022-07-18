@@ -16,6 +16,7 @@ from dataloaders import dataloader_clothing1M as dataloader
 from models.resnet import SupCEResNet
 from train import train, warmup
 from codivide_utils import ccgmm_probabilities
+import numpy as np
 
 
 def parse_args():
@@ -110,7 +111,7 @@ def eval_train(
     model.eval()
     num_samples = num_batches * batch_size + 37497  # add for intersection
     losses = torch.zeros(num_samples)
-    targets_total = torch.zeros(num_samples)
+    targets_total = np.zeros(num_samples)
 
     paths = []
     n = 0
@@ -123,7 +124,7 @@ def eval_train(
             loss = criterion(outputs, targets)
             for b in range(inputs.size(0)):
                 losses[n] = loss[b]
-                targets_total[n] = targets[b]
+                targets_total[n] = targets[b].cpu().numpy().astype("int")
                 paths.append(path[b])
                 n += 1
             sys.stdout.write("\r")
@@ -134,7 +135,6 @@ def eval_train(
     losses = (losses - losses_noisy.min()) / (losses_noisy.max() - losses_noisy.min())
     losses_noisy = losses[: num_batches * batch_size]
     losses, losses_noisy = losses.reshape(-1, 1), losses_noisy.reshape(-1, 1)
-    targets_total = targets_total.cpu().numpy().astype("int")
 
     # gmm = GaussianMixture(n_components=2, max_iter=100, reg_covar=5e-4, tol=1e-2)
     # gmm.fit(losses_noisy)
