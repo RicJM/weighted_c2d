@@ -202,7 +202,7 @@ def main():
     loader = dataloader.clothing_dataloader(
         root=args.data_path,
         batch_size=args.batch_size,
-        num_workers=5,
+        num_workers=2,
         num_batches=args.num_batches,
         log=stats_log,
     )
