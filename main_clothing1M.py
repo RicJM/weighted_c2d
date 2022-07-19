@@ -263,7 +263,7 @@ def main():
 
     net1 = create_model(net="resnet50", num_class=args.num_class)
     net2 = create_model(net="resnet50", num_class=args.num_class)
-    cudnn.benchmark = False  # True
+    cudnn.benchmark = True
 
     optimizer1 = optim.AdamW(net1.parameters(), lr=args.lr, weight_decay=1e-3)
     optimizer2 = optim.AdamW(net2.parameters(), lr=args.lr, weight_decay=1e-3)
@@ -380,7 +380,9 @@ def main():
 
         val_loader = loader.run("val")  # validation
         acc1 = val(net1, val_loader, best_acc, 1, args.id, args.experiment_name)
+        CUDA_status("[INFO ] After validation 1")
         acc2 = val(net2, val_loader, best_acc, 2, args.id, args.experiment_name)
+        CUDA_status("[INFO ] After validation 2")
         test_log.write(
             "Validation Epoch:%d      Acc1:%.2f  Acc2:%.2f\n" % (epoch, acc1, acc2)
         )
@@ -399,6 +401,7 @@ def main():
             stats_log,
             args.device,
         )
+        CUDA_status("[INFO ] After eval_train1 ")
         print("\n==== net 2 evaluate next epoch training data loss ====")
         eval_loader = loader.run("eval_train")
         prob2, paths2 = eval_train(
@@ -411,7 +414,7 @@ def main():
             stats_log,
             args.device,
         )
-
+    CUDA_status("[INFO ] After eval_train2 ")
     test_loader = loader.run("test")
     net1.load_state_dict(
         torch.load("./checkpoint/%s_%s_net1.pth.tar" % (args.id, args.experiment_name))
@@ -420,7 +423,7 @@ def main():
         torch.load("./checkpoint/%s_%s_net2.pth.tar" % (args.id, args.experiment_name))
     )
     acc = run_test(net1, net2, test_loader)
-
+    CUDA_status("[INFO ] After test ")
     test_log.write("Test Accuracy:%.2f\n" % (acc))
     test_log.flush()
 
