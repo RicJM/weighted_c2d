@@ -234,7 +234,9 @@ def bytes2human(n, format="%(value).1f %(symbol)s", symbols="customary"):
 
 
 def CUDA_status(to_print):
-    print(f"\n{to_print}\n{bytes2human(torch.cuda.memory_allocated(device=None))}")
+    print(
+        f"\n{to_print}\n{bytes2human(torch.cuda.memory_allocated(device=None))}\n{memory_summary(device=None, abbreviated=False)}"
+    )
 
 
 def main():
@@ -320,6 +322,7 @@ def main():
             del train_loader
             gc.collect()
             torch.cuda.empty_cache()
+            CUDA_status("[INFO ] After tarinloader free")
             # if epoch > 1:
             #     print("\n\nEval Net2")
             #     pred2 = prob2 > args.p_threshold
