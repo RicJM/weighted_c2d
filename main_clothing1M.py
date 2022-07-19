@@ -71,6 +71,10 @@ def val(net, val_loader, best_acc, k, exp_id, experiment_name):
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(val_loader):
             inputs, targets = inputs.cuda(), targets.cuda()
+            # print(
+            #     f"{batch_idx} {bytes2human(torch.cuda.memory_allocated(device=None))}"
+            # )
+            # print(bytes2human(inputs.element_size() * inputs.nelement()), inputs.size())
             outputs = net(inputs)
             _, predicted = torch.max(outputs, 1)
 
@@ -234,9 +238,7 @@ def bytes2human(n, format="%(value).1f %(symbol)s", symbols="customary"):
 
 
 def CUDA_status(to_print):
-    print(
-        f"\n{to_print}\n{bytes2human(torch.cuda.memory_allocated(device=None))}\n{torch.cuda.memory_summary(device=None, abbreviated=False)}"
-    )
+    print(f"\n{to_print}\n\t{bytes2human(torch.cuda.memory_allocated(device=None))}\n")
 
 
 def main():
