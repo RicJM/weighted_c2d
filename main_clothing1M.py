@@ -235,7 +235,7 @@ def bytes2human(n, format="%(value).1f %(symbol)s", symbols="customary"):
 
 def CUDA_status(to_print):
     print(
-        f"\n{to_print}\n{bytes2human(torch.cuda.memory_allocated(device=None))}\n{memory_summary(device=None, abbreviated=False)}"
+        f"\n{to_print}\n{bytes2human(torch.cuda.memory_allocated(device=None))}\n{torch.cuda.memory_summary(device=None, abbreviated=False)}"
     )
 
 
