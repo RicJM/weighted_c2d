@@ -191,7 +191,12 @@ def create_model_reg(net="resnet50", num_class=14):
     return model
 
 
+def CUDA_status(to_print):
+    print(f"{to_print}\n{torch.cuda.memory_allocated(device=None)}")
+
+
 def main():
+    CUDA_status("INIT")
     args = parse_args()
     os.makedirs("./checkpoint", exist_ok=True)
     log_name = f"./checkpoint/{args.experiment_name}_{args.id}_{args.p_threshold}"
@@ -217,7 +222,7 @@ def main():
 
     net1 = create_model(net="resnet50", num_class=args.num_class)
     net2 = create_model(net="resnet50", num_class=args.num_class)
-    cudnn.benchmark = True
+    cudnn.benchmark = False  # True
 
     optimizer1 = optim.AdamW(net1.parameters(), lr=args.lr, weight_decay=1e-3)
     optimizer2 = optim.AdamW(net2.parameters(), lr=args.lr, weight_decay=1e-3)
@@ -237,6 +242,7 @@ def main():
             param_group["lr"] = lr
 
         if epoch < args.warmup:  # warm up
+            CUDA_status("[INFO ] Beginning warm-up 1")
             train_loader = loader.run("warmup")
             print("Warmup Net1")
             warmup(
@@ -252,6 +258,7 @@ def main():
                 args.num_epochs,
                 None,
             )
+            CUDA_status("[INFO ] After warm-up 1")
             train_loader = loader.run("warmup")
             print("\nWarmup Net2")
             warmup(
@@ -267,6 +274,7 @@ def main():
                 args.num_epochs,
                 None,
             )
+            CUDA_status("[INFO ] After warm-up 2")
 
             # if epoch > 1:
             #     print("\n\nEval Net2")
