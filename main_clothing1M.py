@@ -4,6 +4,7 @@ import argparse
 import os
 import random
 import sys
+import gc
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -316,7 +317,9 @@ def main():
                 None,
             )
             CUDA_status("[INFO ] After warm-up 2")
-
+            del train_loader
+            gc.collect()
+            torch.cuda.empty_cache()
             # if epoch > 1:
             #     print("\n\nEval Net2")
             #     pred2 = prob2 > args.p_threshold
@@ -379,6 +382,7 @@ def main():
             )  # train net2
 
         val_loader = loader.run("val")  # validation
+        CUDA_status("[INFO ] After validation loader")
         acc1 = val(net1, val_loader, best_acc, 1, args.id, args.experiment_name)
         CUDA_status("[INFO ] After validation 1")
         acc2 = val(net2, val_loader, best_acc, 2, args.id, args.experiment_name)

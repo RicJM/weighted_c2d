@@ -242,5 +242,3 @@ def warmup(
                 )
             )
         sys.stdout.flush()
-    gc.collect()
-    torch.cuda.empty_cache()
