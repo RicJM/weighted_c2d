@@ -238,11 +238,11 @@ def bytes2human(n, format="%(value).1f %(symbol)s", symbols="customary"):
 
 
 def CUDA_status(to_print):
-    print(f"\n{to_print}\n\t{bytes2human(torch.cuda.memory_allocated(device=None))}\n")
+    bytes_allocated = bytes2human(torch.cuda.memory_allocated(device=None))
+    print(f"\n{to_print} CUDA bytes allocated: {bytes_allocated}")
 
 
 def main():
-    CUDA_status("INIT")
     args = parse_args()
     os.makedirs("./checkpoint", exist_ok=True)
     log_name = f"./checkpoint/{args.experiment_name}_{args.id}_{args.p_threshold}"
