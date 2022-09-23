@@ -11,6 +11,8 @@ import torch.optim as optim
 import torchnet
 from sklearn.mixture import GaussianMixture
 
+from codivide_utils import ccgmm_probabilities
+
 from dataloaders import dataloader_webvision as dataloader
 from models.InceptionResNetV2 import *
 from models.resnet import SupCEResNet
@@ -169,6 +171,8 @@ def eval_train(model, all_loss):
     model.eval()
     num_iter = (len(eval_loader.dataset) // eval_loader.batch_size) + 1
     losses = torch.zeros(len(eval_loader.dataset))
+    targets_total = np.zeros(len(eval_loader.dataset))
+
     paths = []
     n = 0
     with torch.no_grad():
@@ -189,10 +193,21 @@ def eval_train(model, all_loss):
 
     # fit a two-component GMM to the loss
     input_loss = losses.reshape(-1, 1)
-    gmm = GaussianMixture(n_components=2, max_iter=10, tol=1e-2, reg_covar=5e-4)
-    gmm.fit(input_loss)
-    prob = gmm.predict_proba(input_loss)
-    prob = prob[:, gmm.means_.argmin()]
+    # gmm = GaussianMixture(n_components=2, max_iter=10, tol=1e-2, reg_covar=5e-4)
+    # gmm.fit(input_loss)
+    # prob = gmm.predict_proba(input_loss)
+    # prob = prob[:, gmm.means_.argmin()]
+    prob, _ = ccgmm_probabilities(
+        input_loss,
+        stats_log,
+        epoch,
+        "undefined",
+        targets_total,
+        log=False,
+        baseline=None,
+    )
+
+
     return prob, paths, all_loss
 
 
