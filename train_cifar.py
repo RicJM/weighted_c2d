@@ -109,7 +109,6 @@ def eval_train(
     enableLog=True,
     per_class_testing_accuracy=None,
 ):
-
     print(f"\nCo-Divide net{net}")
     model.eval()
 
@@ -165,7 +164,7 @@ def eval_train(
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
 
-            csvwriter.writerow(["Target", "Loss", "Prediction", "Entropy"])
+            csvwriter.writerow(["Target", "Loss", "Prediction"])
             for i in range(len(targets_all)):
                 csvwriter.writerow(
                     [
@@ -233,11 +232,39 @@ def run_test(epoch, net1, net2, test_loader, device, test_log, num_class):
             correct += predicted.eq(targets).cpu().sum().item()
     acc = 100.0 * correct / total
     per_class_accuracy /= total / num_class
-    print(f"[TEST ]: PER CLASS ACCURACY {per_class_accuracy}")
-    print("\n| Test Epoch #%d\t Accuracy: %.2f%%\n" % (epoch, acc))
-    test_log.write("Epoch:%d   Accuracy:%.2f\n" % (epoch, acc))
+    std = per_class_accuracy.std()
+    print(f"[TEST ]: PER CLASS ACCURACY {per_class_accuracy} STD: {std}")
+    print("\n| Test Epoch #%d\t Accuracy: %.2f%%\t STD:%.2f%%\n" % (epoch, acc, std))
+    test_log.write("Epoch:%d|Accuracy:%.2f|STD:%.2f\n" % (epoch, acc, std))
     test_log.flush()
+    return per_class_accuracy
 
+def run_train(epoch, net1, net2, eval_loader, device, class_accuracy_log, num_class):
+    net1.eval()
+    net2.eval()
+    correct = 0
+    total = 0
+    per_class_accuracy = np.zeros(num_class)
+
+    with torch.no_grad():
+        for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(eval_loader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs1 = net1(inputs)
+            outputs2 = net2(inputs)
+            outputs = outputs1 + outputs2
+            _, predicted = torch.max(outputs, 1)
+            for c in set(predicted.cpu().numpy()):
+                per_class_accuracy[c] += sum(predicted[targets == c] == c)
+
+            total += targets.size(0)
+            correct += predicted.eq(targets).cpu().sum().item()
+    acc = 100.0 * correct / total
+    per_class_accuracy /= total / num_class
+    std = per_class_accuracy.std()
+    print(f"[Training ]: PER CLASS ACCURACY {per_class_accuracy} {std}")
+    print("\n| Epoch #%d\t Accuracy: %.2f%%\t Accuracy STD: %.2f%%:\n" % (epoch, acc, std))
+    class_accuracy_log.write("Epoch:%d|Accuracy:%.2f|std:%.2f\n" % (epoch, acc, std))
+    class_accuracy_log.flush()
     return per_class_accuracy
 
 
@@ -269,6 +296,7 @@ def run_train_loop(
     stats_log,
     loss_log,
     test_log,
+    train_log,
     weights_log,
     training_losses_log,
     log_name,
@@ -352,7 +380,6 @@ def run_train_loop(
                 num_class,
                 figures_folder,
                 enableLog,
-                compute_entropy=True,
                 mcbn_forward_passes=3,
                 per_class_testing_accuracy=per_class_accuracy,
             )
@@ -389,9 +416,7 @@ def run_train_loop(
                 p_threshold,
                 num_class,
                 figures_folder,
-                enableLog,
-                compute_entropy=True,
-                mcbn_forward_passes=3,
+                enableLog=True,
                 per_class_testing_accuracy=per_class_accuracy,
             )
 
@@ -412,6 +437,7 @@ def run_train_loop(
                 p_threshold,
                 num_class,
                 figures_folder,
+                enableLog=False
             )
 
             # Updating weight history
@@ -547,6 +573,8 @@ def run_train_loop(
 
         per_class_accuracy = run_test(
             epoch, net1, net2, test_loader, device, test_log, num_class
+        )
+        run_train(epoch, net1, net2, eval_loader, device, train_log, num_class
         )
 
         sched1.step()

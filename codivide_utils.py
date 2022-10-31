@@ -333,24 +333,24 @@ def per_sample_plot(
             s=s,
         )
 
-        # per class training accuracy
-        plt.hlines(
-            y=per_class_training_accuracy[c],
-            xmin=xmin,
-            xmax=xmax,
-            linewidth=2,
-            linestyles="dotted",
-            color="gray",
-        )
-        # per class testing accuracy
-        plt.hlines(
-            y=per_class_testing_accuracy[c],
-            xmin=xmin,
-            xmax=xmax,
-            linewidth=2,
-            linestyles="dotted",
-            color="black",
-        )
+        # # per class training accuracy
+        # plt.hlines(
+        #     y=per_class_training_accuracy[c],
+        #     xmin=xmin,
+        #     xmax=xmax,
+        #     linewidth=2,
+        #     linestyles="dotted",
+        #     color="gray",
+        # )
+        # # per class testing accuracy
+        # plt.hlines(
+        #     y=per_class_testing_accuracy[c],
+        #     xmin=xmin,
+        #     xmax=xmax,
+        #     linewidth=2,
+        #     linestyles="dotted",
+        #     color="black",
+        # )
         # codivide ccgmm boundary
         plt.hlines(y=boundary_ccgmm, xmin=xmin, xmax=xmax, linewidth=1, color="purple")
         plt.fill_between(
