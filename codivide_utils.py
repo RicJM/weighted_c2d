@@ -174,7 +174,6 @@ def per_sample_plot(
     clean_labels,
     per_class_testing_accuracy,
     per_class_training_accuracy,
-    sample_entropy,
     gmm,
     ccgmm,
     p_thr,
@@ -298,9 +297,7 @@ def per_sample_plot(
         "woman",
         "worm",
     ]
-    # dispersion = np.random.rand(len(clean_labels))*0.8
-    dispersion = sample_entropy * 1.8
-    print(f"Sample entropy min {min(sample_entropy)} max:{max(sample_entropy)}")
+    dispersion = np.random.rand(len(clean_labels))*0.8
     clean_samples = targets == clean_labels
     s = 0.2
     num_classes = max(clean_labels) + 1

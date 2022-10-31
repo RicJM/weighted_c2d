@@ -106,61 +106,45 @@ def eval_train(
     p_threshold,
     num_class,
     figures_folder,
-    enableLog=False,
-    compute_entropy=False,
-    mcbn_forward_passes=3,
+    enableLog=True,
     per_class_testing_accuracy=None,
 ):
 
     print(f"\nCo-Divide net{net}")
     model.eval()
-    epsilon = sys.float_info.min
-
-    forward_passes = 1
-    if compute_entropy:
-        forward_passes = mcbn_forward_passes
-
-    forward_passes = 1  # TODO change this
 
     losses = torch.zeros(50000)
     losses_clean = torch.zeros(50000)
-    softmaxs = torch.zeros(size=(50000, num_class, forward_passes), device=device)
+    softmaxs = torch.zeros(size=(50000, num_class), device=device)
 
     targets_all = torch.zeros(50000, device=device)
     targets_clean_all = torch.zeros(50000, device=device)
     predictions_all = torch.zeros(50000, device=device)
 
     with torch.no_grad():
-        for i in range(0, forward_passes):
-            if i == 1:  # to leverage BN's stochastic behaviour
-                enable_bn(model)
-            for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(
-                eval_loader
-            ):
-                inputs, targets, targets_clean = (
-                    inputs.to(device),
-                    targets.to(device),
-                    targets_clean.to(device),
-                )
-                outputs = model(inputs)
-                softmax = torch.softmax(outputs, dim=1)  # shape (n_samples, n_classes)
+        for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(
+            eval_loader
+        ):
+            inputs, targets, targets_clean = (
+                inputs.to(device),
+                targets.to(device),
+                targets_clean.to(device),
+            )
+            outputs = model(inputs)
+            softmax = torch.softmax(outputs, dim=1)  # shape (n_samples, n_classes)
+            for b in range(inputs.size(0)):
+                softmaxs[index[b], :] = softmax[b]  
+                _, predicted = torch.max(outputs, 1)
+                for j, b in enumerate(range(index.size(0))):
+                    targets_all[index[b]] = targets[j]
+                    targets_clean_all[index[b]] = targets_clean[j]
+                    predictions_all[index[b]] = predicted[j]
+
+                loss = CE(outputs, targets)
+                clean_loss = CE(outputs, targets_clean)
                 for b in range(inputs.size(0)):
-                    softmaxs[index[b], :, i] = softmax[
-                        b
-                    ]  # shape (n_samples, n_classes, n_mcdo_passes)
-
-                if i == 0:
-                    _, predicted = torch.max(outputs, 1)
-                    for j, b in enumerate(range(index.size(0))):
-                        targets_all[index[b]] = targets[j]
-                        targets_clean_all[index[b]] = targets_clean[j]
-                        predictions_all[index[b]] = predicted[j]
-
-                    loss = CE(outputs, targets)
-                    clean_loss = CE(outputs, targets_clean)
-                    for b in range(inputs.size(0)):
-                        losses[index[b]] = loss[b]
-                        losses_clean[index[b]] = clean_loss[b]
+                    losses[index[b]] = loss[b]
+                    losses_clean[index[b]] = clean_loss[b]
 
     per_class_training_accuracy = [
         sum(predictions_all[targets_clean_all == c] == c).item() * num_class / 50000
@@ -173,19 +157,6 @@ def eval_train(
 
     losses = (losses - losses.min()) / (losses.max() - losses.min())
     all_loss.append(losses)
-
-    # Per sample uncertainty.
-    sample_mean_over_mcbn = torch.mean(softmaxs, dim=2)  # shape (n_samples, n_classes)
-    sample_entropy = (
-        -torch.sum(
-            sample_mean_over_mcbn * torch.log(sample_mean_over_mcbn + epsilon), axis=-1
-        )
-        .cpu()
-        .numpy()
-    )  # shape (n_samples,)
-    sample_entropy = (sample_entropy - sample_entropy.min()) / (
-        sample_entropy.max() - sample_entropy.min()
-    )
 
     history = torch.stack(all_loss)
     if enableLog:
@@ -200,8 +171,7 @@ def eval_train(
                     [
                         targets_all.tolist()[i],
                         losses[i].item(),
-                        predictions_merged[i],
-                        sample_entropy[i].item(),
+                        predictions_merged[i]
                     ]
                 )
 
@@ -232,7 +202,6 @@ def eval_train(
             np.asarray(targets_clean_all),
             per_class_testing_accuracy,
             per_class_training_accuracy,
-            sample_entropy,
             gmm,
             ccgmm,
             p_threshold,
