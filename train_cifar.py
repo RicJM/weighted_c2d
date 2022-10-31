@@ -321,11 +321,6 @@ def run_train_loop(
     for epoch in range(resume_epoch, num_epochs + 1):
         test_loader = loader.run("test")
         eval_loader = loader.run("BN_eval_train")  # shuffling needed to perform MCBN
-        if epoch <= 10:
-            p_threshold = 0.7
-        else:
-            p_threshold = 0.01
-
         if epoch <= warm_up:
             warmup_trainloader = loader.run("warmup")
             print("Warmup Net1")
@@ -380,7 +375,6 @@ def run_train_loop(
                 num_class,
                 figures_folder,
                 enableLog,
-                mcbn_forward_passes=3,
                 per_class_testing_accuracy=per_class_accuracy,
             )
 
@@ -416,7 +410,7 @@ def run_train_loop(
                 p_threshold,
                 num_class,
                 figures_folder,
-                enableLog=True,
+                enableLog=enableLog,
                 per_class_testing_accuracy=per_class_accuracy,
             )
 
