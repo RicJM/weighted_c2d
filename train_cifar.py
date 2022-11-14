@@ -132,7 +132,7 @@ def eval_train(
             outputs = model(inputs)
             softmax = torch.softmax(outputs, dim=1)  # shape (n_samples, n_classes)
             for b in range(inputs.size(0)):
-                softmaxs[index[b], :] = softmax[b]  
+                softmaxs[index[b], :] = softmax[b]
                 _, predicted = torch.max(outputs, 1)
                 for j, b in enumerate(range(index.size(0))):
                     targets_all[index[b]] = targets[j]
@@ -159,20 +159,22 @@ def eval_train(
 
     history = torch.stack(all_loss)
     if enableLog:
-        log_name = log_name.format(f"net_{net}_epoch_{epoch}")
-        with open(log_name, "w", encoding="utf-8") as csvfile:
+        log_name_ = log_name.format(f"net_{net}_epoch_{epoch}")
+        with open(log_name_, "w", encoding="utf-8") as csvfile:
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
 
             csvwriter.writerow(["Target", "Loss", "Prediction"])
             for i in range(len(targets_all)):
                 csvwriter.writerow(
-                    [
-                        targets_all.tolist()[i],
-                        losses[i].item(),
-                        predictions_merged[i]
-                    ]
+                    [targets_all.tolist()[i], losses[i].item(), predictions_merged[i]]
                 )
+        log_name_temp = log_name.format(f"CIFAR100_clean")
+        with open(log_name_temp, "w", encoding="utf-8") as csvfile:
+            # creating a csv writer object
+            csvwriter = csv.writer(csvfile)
+            for i in range(len(targets_clean_all)):
+                csvwriter.writerow([targets_clean_all.tolist()[i]])
 
     weights_raw = compute_unc_weights(
         targets_all.tolist(), predictions_merged, weight_mode
@@ -239,6 +241,7 @@ def run_test(epoch, net1, net2, test_loader, device, test_log, num_class):
     test_log.flush()
     return per_class_accuracy
 
+
 def run_train(epoch, net1, net2, eval_loader, device, class_accuracy_log, num_class):
     net1.eval()
     net2.eval()
@@ -247,7 +250,9 @@ def run_train(epoch, net1, net2, eval_loader, device, class_accuracy_log, num_cl
     per_class_accuracy = np.zeros(num_class)
 
     with torch.no_grad():
-        for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(eval_loader):
+        for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(
+            eval_loader
+        ):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs1 = net1(inputs)
             outputs2 = net2(inputs)
@@ -262,7 +267,9 @@ def run_train(epoch, net1, net2, eval_loader, device, class_accuracy_log, num_cl
     per_class_accuracy /= total / num_class
     std = per_class_accuracy.std()
     print(f"[Training ]: PER CLASS ACCURACY {per_class_accuracy} {std}")
-    print("\n| Epoch #%d\t Accuracy: %.2f%%\t Accuracy STD: %.2f%%:\n" % (epoch, acc, std))
+    print(
+        "\n| Epoch #%d\t Accuracy: %.2f%%\t Accuracy STD: %.2f%%:\n" % (epoch, acc, std)
+    )
     class_accuracy_log.write("Epoch:%d|Accuracy:%.2f|std:%.2f\n" % (epoch, acc, std))
     class_accuracy_log.flush()
     return per_class_accuracy
@@ -431,7 +438,7 @@ def run_train_loop(
                 p_threshold,
                 num_class,
                 figures_folder,
-                enableLog=False
+                enableLog=False,
             )
 
             # Updating weight history
@@ -568,8 +575,7 @@ def run_train_loop(
         per_class_accuracy = run_test(
             epoch, net1, net2, test_loader, device, test_log, num_class
         )
-        run_train(epoch, net1, net2, eval_loader, device, train_log, num_class
-        )
+        run_train(epoch, net1, net2, eval_loader, device, train_log, num_class)
 
         sched1.step()
         sched2.step()
