@@ -106,60 +106,44 @@ def eval_train(
     p_threshold,
     num_class,
     figures_folder,
-    enableLog=False,
-    compute_entropy=False,
-    mcbn_forward_passes=3,
+    enableLog=True,
     per_class_testing_accuracy=None,
 ):
-
     print(f"\nCo-Divide net{net}")
     model.eval()
-    epsilon = sys.float_info.min
-
-    forward_passes = 1
-    if compute_entropy:
-        forward_passes = mcbn_forward_passes
-
-    forward_passes = 1  # TODO change this
 
     losses = torch.zeros(50000)
     losses_clean = torch.zeros(50000)
-    softmaxs = torch.zeros(size=(50000, num_class, forward_passes), device=device)
+    softmaxs = torch.zeros(size=(50000, num_class), device=device)
 
     targets_all = torch.zeros(50000, device=device)
     targets_clean_all = torch.zeros(50000, device=device)
     predictions_all = torch.zeros(50000, device=device)
 
     with torch.no_grad():
-        for i in range(0, forward_passes):
-            if i == 1:  # to leverage BN's stochastic behaviour
-                enable_bn(model)
-            for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(
-                eval_loader
-            ):
-                inputs, targets, targets_clean = (
-                    inputs.to(device),
-                    targets.to(device),
-                    targets_clean.to(device),
-                )
-                outputs = model(inputs)
-                softmax = torch.softmax(outputs, dim=1)  # shape (n_samples, n_classes)
-                for b in range(inputs.size(0)):
-                    softmaxs[index[b], :, i] = softmax[
-                        b
-                    ]  # shape (n_samples, n_classes, n_mcdo_passes)
-                if i == 0:
-                    _, predicted = torch.max(outputs, 1)
-                    for j, b in enumerate(range(index.size(0))):
-                        targets_all[index[b]] = targets[j]
-                        targets_clean_all[index[b]] = targets_clean[j]
-                        predictions_all[index[b]] = predicted[j]
+        for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(
+            eval_loader
+        ):
+            inputs, targets, targets_clean = (
+                inputs.to(device),
+                targets.to(device),
+                targets_clean.to(device),
+            )
+            outputs = model(inputs)
+            softmax = torch.softmax(outputs, dim=1)  # shape (n_samples, n_classes)
+            for b in range(inputs.size(0)):
+                softmaxs[index[b], :] = softmax[b]
+                _, predicted = torch.max(outputs, 1)
+                for j, b in enumerate(range(index.size(0))):
+                    targets_all[index[b]] = targets[j]
+                    targets_clean_all[index[b]] = targets_clean[j]
+                    predictions_all[index[b]] = predicted[j]
 
-                    loss = CE(outputs, targets)
-                    clean_loss = CE(outputs, targets_clean)
-                    for b in range(inputs.size(0)):
-                        losses[index[b]] = loss[b]
-                        losses_clean[index[b]] = clean_loss[b]
+                loss = CE(outputs, targets)
+                clean_loss = CE(outputs, targets_clean)
+                for b in range(inputs.size(0)):
+                    losses[index[b]] = loss[b]
+                    losses_clean[index[b]] = clean_loss[b]
 
     per_class_training_accuracy = [
         sum(predictions_all[targets_clean_all == c] == c).item() * num_class / 50000
@@ -173,36 +157,24 @@ def eval_train(
     losses = (losses - losses.min()) / (losses.max() - losses.min())
     all_loss.append(losses)
 
-    # Per sample uncertainty.
-    sample_mean_over_mcbn = torch.mean(softmaxs, dim=2)  # shape (n_samples, n_classes)
-    sample_entropy = (
-        -torch.sum(
-            sample_mean_over_mcbn * torch.log(sample_mean_over_mcbn + epsilon), axis=-1
-        )
-        .cpu()
-        .numpy()
-    )  # shape (n_samples,)
-    sample_entropy = (sample_entropy - sample_entropy.min()) / (
-        sample_entropy.max() - sample_entropy.min()
-    )
-
     history = torch.stack(all_loss)
     if enableLog:
-        log_name = log_name.format(f"net_{net}_epoch_{epoch}")
-        with open(log_name, "w", encoding="utf-8") as csvfile:
+        log_name_ = log_name.format(f"net_{net}_epoch_{epoch}")
+        with open(log_name_, "w", encoding="utf-8") as csvfile:
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
 
-            csvwriter.writerow(["Target", "Loss", "Prediction", "Entropy"])
+            csvwriter.writerow(["Target", "Loss", "Prediction"])
             for i in range(len(targets_all)):
                 csvwriter.writerow(
-                    [
-                        targets_all.tolist()[i],
-                        losses[i].item(),
-                        predictions_merged[i],
-                        sample_entropy[i].item(),
-                    ]
+                    [targets_all.tolist()[i], losses[i].item(), predictions_merged[i]]
                 )
+        log_name_temp = log_name.format(f"CIFAR100_clean")
+        with open(log_name_temp, "w", encoding="utf-8") as csvfile:
+            # creating a csv writer object
+            csvwriter = csv.writer(csvfile)
+            for i in range(len(targets_clean_all)):
+                csvwriter.writerow([targets_clean_all.tolist()[i]])
 
     weights_raw = compute_unc_weights(
         targets_all.tolist(), predictions_merged, weight_mode
@@ -231,7 +203,6 @@ def eval_train(
             np.asarray(targets_clean_all),
             per_class_testing_accuracy,
             per_class_training_accuracy,
-            sample_entropy,
             gmm,
             ccgmm,
             p_threshold,
@@ -263,11 +234,44 @@ def run_test(epoch, net1, net2, test_loader, device, test_log, num_class):
             correct += predicted.eq(targets).cpu().sum().item()
     acc = 100.0 * correct / total
     per_class_accuracy /= total / num_class
-    print(f"[TEST ]: PER CLASS ACCURACY {per_class_accuracy}")
-    print("\n| Test Epoch #%d\t Accuracy: %.2f%%\n" % (epoch, acc))
-    test_log.write("Epoch:%d   Accuracy:%.2f\n" % (epoch, acc))
+    std = per_class_accuracy.std()
+    print(f"[TEST ]: PER CLASS ACCURACY {per_class_accuracy} STD: {std}")
+    print("\n| Test Epoch #%d\t Accuracy: %.2f%%\t STD:%.2f%%\n" % (epoch, acc, std))
+    test_log.write("Epoch:%d|Accuracy:%.2f|STD:%.2f\n" % (epoch, acc, std))
     test_log.flush()
+    return per_class_accuracy
 
+
+def run_train(epoch, net1, net2, eval_loader, device, class_accuracy_log, num_class):
+    net1.eval()
+    net2.eval()
+    correct = 0
+    total = 0
+    per_class_accuracy = np.zeros(num_class)
+
+    with torch.no_grad():
+        for batch_idx, (inputs, _, targets, index, targets_clean) in enumerate(
+            eval_loader
+        ):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs1 = net1(inputs)
+            outputs2 = net2(inputs)
+            outputs = outputs1 + outputs2
+            _, predicted = torch.max(outputs, 1)
+            for c in set(predicted.cpu().numpy()):
+                per_class_accuracy[c] += sum(predicted[targets == c] == c)
+
+            total += targets.size(0)
+            correct += predicted.eq(targets).cpu().sum().item()
+    acc = 100.0 * correct / total
+    per_class_accuracy /= total / num_class
+    std = per_class_accuracy.std()
+    print(f"[Training ]: PER CLASS ACCURACY {per_class_accuracy} {std}")
+    print(
+        "\n| Epoch #%d\t Accuracy: %.2f%%\t Accuracy STD: %.2f%%:\n" % (epoch, acc, std)
+    )
+    class_accuracy_log.write("Epoch:%d|Accuracy:%.2f|std:%.2f\n" % (epoch, acc, std))
+    class_accuracy_log.flush()
     return per_class_accuracy
 
 
@@ -299,6 +303,7 @@ def run_train_loop(
     stats_log,
     loss_log,
     test_log,
+    train_log,
     weights_log,
     training_losses_log,
     log_name,
@@ -323,11 +328,6 @@ def run_train_loop(
     for epoch in range(resume_epoch, num_epochs + 1):
         test_loader = loader.run("test")
         eval_loader = loader.run("BN_eval_train")  # shuffling needed to perform MCBN
-        if epoch <= 10:
-            p_threshold = 0.7
-        else:
-            p_threshold = 0.01
-
         if epoch <= warm_up:
             warmup_trainloader = loader.run("warmup")
             print("Warmup Net1")
@@ -382,8 +382,6 @@ def run_train_loop(
                 num_class,
                 figures_folder,
                 enableLog,
-                compute_entropy=True,
-                mcbn_forward_passes=3,
                 per_class_testing_accuracy=per_class_accuracy,
             )
 
@@ -419,9 +417,7 @@ def run_train_loop(
                 p_threshold,
                 num_class,
                 figures_folder,
-                enableLog,
-                compute_entropy=True,
-                mcbn_forward_passes=3,
+                enableLog=enableLog,
                 per_class_testing_accuracy=per_class_accuracy,
             )
 
@@ -442,6 +438,7 @@ def run_train_loop(
                 p_threshold,
                 num_class,
                 figures_folder,
+                enableLog=False,
             )
 
             # Updating weight history
@@ -578,6 +575,7 @@ def run_train_loop(
         per_class_accuracy = run_test(
             epoch, net1, net2, test_loader, device, test_log, num_class
         )
+        run_train(epoch, net1, net2, eval_loader, device, train_log, num_class)
 
         sched1.step()
         sched2.step()

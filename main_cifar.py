@@ -285,7 +285,8 @@ def main():
         os.makedirs(model_checkpoint_folder, exist_ok=True)
 
     stats_log = open(f"{experiment_folder}/{experiment_prefix}_stats.txt", "a")
-    test_log = open(f"{experiment_folder}/{experiment_prefix}_acc.txt", "a")
+    test_log = open(f"{experiment_folder}/{experiment_prefix}_test_acc.txt", "a")
+    train_log = open(f"{experiment_folder}/{experiment_prefix}_train_acc.txt", "a")    
     loss_log = open(f"{experiment_folder}/{experiment_prefix}_loss.txt", "a")
     codivide_log = open(f"{experiment_folder}/{experiment_prefix}_codivide.txt", "a")
 
@@ -438,6 +439,7 @@ def main():
         stats_log,
         loss_log,
         test_log,
+        train_log,
         weights_log,
         training_losses_log,
         detailed_losses_file,

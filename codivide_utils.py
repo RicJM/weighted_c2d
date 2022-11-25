@@ -174,7 +174,6 @@ def per_sample_plot(
     clean_labels,
     per_class_testing_accuracy,
     per_class_training_accuracy,
-    sample_entropy,
     gmm,
     ccgmm,
     p_thr,
@@ -298,9 +297,7 @@ def per_sample_plot(
         "woman",
         "worm",
     ]
-    # dispersion = np.random.rand(len(clean_labels))*0.8
-    dispersion = sample_entropy * 1.8
-    print(f"Sample entropy min {min(sample_entropy)} max:{max(sample_entropy)}")
+    dispersion = np.random.rand(len(clean_labels))*0.8
     clean_samples = targets == clean_labels
     s = 0.2
     num_classes = max(clean_labels) + 1
@@ -336,24 +333,24 @@ def per_sample_plot(
             s=s,
         )
 
-        # per class training accuracy
-        plt.hlines(
-            y=per_class_training_accuracy[c],
-            xmin=xmin,
-            xmax=xmax,
-            linewidth=2,
-            linestyles="dotted",
-            color="gray",
-        )
-        # per class testing accuracy
-        plt.hlines(
-            y=per_class_testing_accuracy[c],
-            xmin=xmin,
-            xmax=xmax,
-            linewidth=2,
-            linestyles="dotted",
-            color="black",
-        )
+        # # per class training accuracy
+        # plt.hlines(
+        #     y=per_class_training_accuracy[c],
+        #     xmin=xmin,
+        #     xmax=xmax,
+        #     linewidth=2,
+        #     linestyles="dotted",
+        #     color="gray",
+        # )
+        # # per class testing accuracy
+        # plt.hlines(
+        #     y=per_class_testing_accuracy[c],
+        #     xmin=xmin,
+        #     xmax=xmax,
+        #     linewidth=2,
+        #     linestyles="dotted",
+        #     color="black",
+        # )
         # codivide ccgmm boundary
         plt.hlines(y=boundary_ccgmm, xmin=xmin, xmax=xmax, linewidth=1, color="purple")
         plt.fill_between(
