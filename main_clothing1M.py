@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import argparse
+from distutils.command import clean
 import os
 import random
 import sys
@@ -16,7 +17,7 @@ from sklearn.mixture import GaussianMixture
 from dataloaders import dataloader_clothing1M as dataloader
 from models.resnet import SupCEResNet
 from train import train, warmup
-from codivide_utils import ccgmm_probabilities
+from codivide_utils import ccgmm_codivide
 import numpy as np
 
 
@@ -111,13 +112,21 @@ def run_test(net1, net2, test_loader):
 
 
 def eval_train(
-    epoch, model, eval_loader, criterion, num_batches, batch_size, stats_log, device
+    epoch,
+    model,
+    eval_loader,
+    criterion,
+    num_batches,
+    batch_size,
+    stats_log,
+    device,
+    p_thr,
 ):
     model.eval()
     num_samples = num_batches * batch_size + 37497  # add for intersection
     losses = torch.zeros(num_samples, device=device)
     targets_total = np.zeros(num_samples)
-
+    clean_target_total = np.zeros(num_samples)
     paths = []
     n = 0
     with torch.no_grad():
@@ -130,44 +139,26 @@ def eval_train(
             for b in range(inputs.size(0)):
                 losses[n] = loss[b]
                 targets_total[n] = targets[b].cpu().numpy().astype("int")
+                clean_target_total[n] = clean_target[b]
                 paths.append(path[b])
                 n += 1
+
             sys.stdout.write("\r")
             sys.stdout.write("| Evaluating loss Iter %3d\t" % (batch_idx))
             sys.stdout.flush()
 
-    losses_noisy = losses[: num_batches * batch_size]
-    losses = (losses - losses_noisy.min()) / (losses_noisy.max() - losses_noisy.min())
-    losses_noisy = losses[: num_batches * batch_size]
-    losses, losses_noisy = losses.reshape(-1, 1), losses_noisy.reshape(-1, 1)
+    losses = losses.cpu().numpy()
+    losses = (losses - losses.min()) / (losses.max() - losses.min())
+    losses = losses.reshape(-1, 1)
 
-    # gmm = GaussianMixture(n_components=2, max_iter=100, reg_covar=5e-4, tol=1e-2)
-    # gmm.fit(losses_noisy)
-    # clean_idx, noisy_idx = gmm.means_.argmin(), gmm.means_.argmax()
-    # stats_log.write(
-    #     "GMM results: {} with variance {} and weight {}\t"
-    #     "{} with variance {} and weight {}\n".format(
-    #         gmm.means_[clean_idx],
-    #         gmm.covariances_[clean_idx],
-    #         gmm.weights_[clean_idx],
-    #         gmm.means_[noisy_idx],
-    #         gmm.covariances_[noisy_idx],
-    #         gmm.weights_[noisy_idx],
-    #     )
-    # )
-    # stats_log.flush()
-    # prob = gmm.predict_proba(losses)
-    # prob = prob[:, clean_idx]
-    prob, _ = ccgmm_probabilities(
-        losses_noisy,
-        stats_log,
-        epoch,
-        "undefined",
-        targets_total,
-        log=False,
-        baseline=None,
+    prob = ccgmm_codivide(losses, targets_total)
+    pred = prob > p_thr
+
+    clean_samples = targets_total == clean_target_total
+
+    stats_log.write(
+        f"Noise modelling accuracy: {(pred==clean_samples).sum()/len(pred)}"
     )
-
     return prob, paths
 
 
@@ -246,6 +237,7 @@ def main():
     args = parse_args()
     os.makedirs("./checkpoint", exist_ok=True)
     log_name = f"./checkpoint/{args.experiment_name}_{args.id}_{args.p_threshold}"
+    conomo_log = open(log_name + "_conomo.txt", "w")
     stats_log = open(log_name + "_stats.txt", "w")
     test_log = open(log_name + "_acc.txt", "w")
     test_log.flush()
@@ -325,12 +317,6 @@ def main():
             gc.collect()
             torch.cuda.empty_cache()
             CUDA_status("[INFO ] After tarinloader free")
-            # if epoch > 1:
-            #     print("\n\nEval Net2")
-            #     pred2 = prob2 > args.p_threshold
-            #     labeled_trainloader, unlabeled_trainloader = loader.run(
-            #         "train", pred2, prob2, paths=paths2
-            #     )  # co-divide
         else:
             pred1 = prob1 > args.p_threshold  # divide dataset
             pred2 = prob2 > args.p_threshold
@@ -407,8 +393,9 @@ def main():
             CE,
             args.num_batches,
             args.batch_size,
-            stats_log,
+            conomo_log,
             args.device,
+            args.p_threshold,
         )
         CUDA_status("[INFO ] After eval_train1 ")
         print("\n==== net 2 evaluate next epoch training data loss ====")
@@ -420,8 +407,9 @@ def main():
             CE,
             args.num_batches,
             args.batch_size,
-            stats_log,
+            conomo_log,
             args.device,
+            args.p_threshold,
         )
     CUDA_status("[INFO ] After eval_train2 ")
     test_loader = loader.run("test")
