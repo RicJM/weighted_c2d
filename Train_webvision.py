@@ -345,7 +345,7 @@ for epoch in range(args.num_epochs + 1):
         param_group["lr"] = lr
     eval_loader = loader.run("eval_train")
     web_valloader = loader.run("test")
-    imagenet_valloader = loader.run("imagenet")
+    # imagenet_valloader = loader.run("imagenet")
 
     if epoch < warm_up:
         warmup_trainloader = loader.run("warmup")
@@ -375,7 +375,8 @@ for epoch in range(args.num_epochs + 1):
         )  # train net2
 
     web_acc = run_test(epoch, net1, net2, web_valloader)
-    imagenet_acc = run_test(epoch, net1, net2, imagenet_valloader)
+    # imagenet_acc = run_test(epoch, net1, net2, imagenet_valloader)
+    imagenet_acc = 0.0, 0.0
 
     print(
         "\n| Test Epoch #%d\t WebVision Acc: %.2f%% (%.2f%%) \t ImageNet Acc: %.2f%% (%.2f%%)\n"
