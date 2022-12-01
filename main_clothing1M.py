@@ -130,7 +130,7 @@ def eval_train(
     paths = []
     n = 0
     with torch.no_grad():
-        for batch_idx, (inputs, _, targets, clean_target, path, _) in enumerate(
+        for batch_idx, (inputs, _, targets, path, clean_target) in enumerate(
             eval_loader
         ):
             inputs, targets = inputs.cuda(), targets.cuda()
