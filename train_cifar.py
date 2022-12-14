@@ -169,13 +169,6 @@ def eval_train(
                 csvwriter.writerow(
                     [targets_all.tolist()[i], losses[i].item(), predictions_merged[i]]
                 )
-        log_name_temp = log_name.format(f"CIFAR100_clean")
-        with open(log_name_temp, "w", encoding="utf-8") as csvfile:
-            # creating a csv writer object
-            csvwriter = csv.writer(csvfile)
-            for i in range(len(targets_clean_all)):
-                csvwriter.writerow([targets_clean_all.tolist()[i]])
-
     weights_raw = compute_unc_weights(
         targets_all.tolist(), predictions_merged, weight_mode
     )
